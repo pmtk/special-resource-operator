@@ -45,7 +45,7 @@ func init() {
 	)
 }
 
-//go:generate mockgen -source=metrics.go -package=metrics -destination=metrics_mock_test.go
+//go:generate mockgen -source=metrics.go -package=metrics -destination=mock_metrics_api.go
 
 // Metrics is an interface representing a prometheus client for the Special Resource Operator
 type Metrics interface {
