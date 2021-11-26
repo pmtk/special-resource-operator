@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -49,12 +48,12 @@ var _ = Describe("Metrics", func() {
 		}
 
 		data, err := metrics.Registry.Gather()
-		Expect(err).To(BeNil())
+		Expect(err).NotTo(HaveOccurred())
 		Expect(data).To(HaveLen(len(expected)))
 
 		for _, e := range expected {
 			m := findMetric(data, e.query)
-			Expect(m).ToNot(BeNil(), fmt.Sprintf("metric for %s could not be find", e.query))
+			Expect(m).ToNot(BeNil(), "metric for %s could not be found", e.query)
 			Expect(m.Metric).To(HaveLen(1))
 			Expect(m.Metric[0].Gauge).ToNot(BeNil())
 			Expect(m.Metric[0].Gauge.Value).ToNot(BeNil())
