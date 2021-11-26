@@ -10,6 +10,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
+const (
+	specialResourceCreateValue = 1
+	completedStatesValue       = 2
+	completedKindValue         = 2
+
+	sr        = "simple-kmod"
+	state     = "templates/0000-buildconfig.yaml"
+	kind      = "BuildConfig"
+	name      = "simple-kmod-driver-build"
+	namespace = "openshift-special-resource-operator"
+)
+
 func TestMetrics(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Metrics Suite")
@@ -25,26 +37,19 @@ func findMetric(src []*dto.MetricFamily, query string) *dto.MetricFamily {
 }
 
 var _ = Describe("Metrics", func() {
-	value := 12
-	sr := "simple-kmod"
-	state := "templates/0000-buildconfig.yaml"
-	kind := "BuildConfig"
-	name := "simple-kmod-driver-build"
-	namespace := "openshift-special-resource-operator"
-
 	m := New()
-	m.SetSpecialResourcesCreated(value)
-	m.SetCompletedState(sr, state, value)
-	m.SetCompletedKind(sr, kind, name, namespace, value)
+	m.SetSpecialResourcesCreated(specialResourceCreateValue)
+	m.SetCompletedState(sr, state, completedStatesValue)
+	m.SetCompletedKind(sr, kind, name, namespace, completedKindValue)
 
 	It("correctly passes calls to the collectors", func() {
 		expected := []struct {
 			query string
 			value int
 		}{
-			{createdSpecialResourcesQuery, value},
-			{completedStatesQuery, value},
-			{completedKindQuery, value},
+			{createdSpecialResourcesQuery, specialResourceCreateValue},
+			{completedStatesQuery, completedStatesValue},
+			{completedKindQuery, completedKindValue},
 		}
 
 		data, err := metrics.Registry.Gather()
@@ -57,7 +62,7 @@ var _ = Describe("Metrics", func() {
 			Expect(m.Metric).To(HaveLen(1))
 			Expect(m.Metric[0].Gauge).ToNot(BeNil())
 			Expect(m.Metric[0].Gauge.Value).ToNot(BeNil())
-			Expect(*m.Metric[0].Gauge.Value).To(BeEquivalentTo(value))
+			Expect(*m.Metric[0].Gauge.Value).To(BeEquivalentTo(e.value))
 		}
 	})
 })
