@@ -91,6 +91,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)
 	}
+	if err = (&controllers.SpecialResourceModuleReconciler{
+		Log:    ctrl.Log,
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create module controller", "controller", "SpecialResourceModule")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

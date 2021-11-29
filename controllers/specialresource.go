@@ -18,8 +18,12 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
+	buildv1 "github.com/openshift/api/build/v1"
+	imagev1 "github.com/openshift/api/image/v1"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -157,6 +161,81 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	}
 
 	log.Info("RECONCILE SUCCESS: All resources done")
+	{
+		log.Info("pacevedo. Experimental")
+		{
+			is := imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "acm-kmod",
+					Namespace: "acm-kmod",
+				},
+				Spec: imagev1.ImageStreamSpec{},
+			}
+			res, err := ctrl.CreateOrUpdate(context.TODO(), clients.Interface, &is, noop)
+			if err != nil {
+				log.Info("pacevedo ImageStream. Error!", "error", err)
+			} else {
+				log.Info("pacevedo ImageStream. ok!", "res", res)
+			}
+		}
+
+		{
+			bc := buildv1.BuildConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "acm-kmod",
+					Namespace: "acm-kmod",
+				},
+				Spec: buildv1.BuildConfigSpec{
+					Triggers: []buildv1.BuildTriggerPolicy{
+						buildv1.BuildTriggerPolicy{
+							Type: buildv1.ConfigChangeBuildTriggerType,
+						},
+					},
+					CommonSpec: buildv1.CommonSpec{
+						Source: buildv1.BuildSource{
+							Type: buildv1.BuildSourceGit,
+							Git: &buildv1.GitBuildSource{
+								URI: "https://github.com/openshift-psap/kvc-simple-kmod.git",
+								Ref: "master",
+							},
+						},
+						Strategy: buildv1.BuildStrategy{
+							Type: buildv1.DockerBuildStrategyType,
+							DockerStrategy: &buildv1.DockerBuildStrategy{
+								DockerfilePath: "Dockerfile.SRO",
+								BuildArgs: []corev1.EnvVar{
+									corev1.EnvVar{
+										Name:  "IMAGE",
+										Value: "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:3dca2249f2dbc55e4f2c09f41c0b1a5c3acb4863626d9e1aa6f746f73ea1d96f",
+									},
+									corev1.EnvVar{
+										Name:  "KMODVER",
+										Value: "SRO",
+									},
+									corev1.EnvVar{
+										Name:  "KVER",
+										Value: "4.18.0-305.19.1.el8_4.x86_64",
+									},
+								},
+							},
+						},
+						Output: buildv1.BuildOutput{
+							To: &corev1.ObjectReference{
+								Kind: "ImageStreamTag",
+								Name: "acm-kmod:tag",
+							},
+						},
+					},
+				},
+			}
+			res, err := ctrl.CreateOrUpdate(context.TODO(), clients.Interface, &bc, noop)
+			if err != nil {
+				log.Info("pacevedo. Error!", "error", err)
+			} else {
+				log.Info("pacevedo. ok!", "res", res)
+			}
+		}
+	}
 	return reconcile.Result{}, nil
 }
 

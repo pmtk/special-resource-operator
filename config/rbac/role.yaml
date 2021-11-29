@@ -1074,6 +1074,34 @@ rules:
 - apiGroups:
   - sro.openshift.io
   resources:
+  - specialresourcemodules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sro.openshift.io
+  resources:
+  - specialresourcemodules/finalizers
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - sro.openshift.io
+  resources:
+  - specialresourcemodules/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - sro.openshift.io
+  resources:
   - specialresources
   verbs:
   - create
