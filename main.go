@@ -24,6 +24,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
@@ -87,6 +88,7 @@ func main() {
 		Log:     ctrl.Log,
 		Scheme:  mgr.GetScheme(),
 		Metrics: metrics.New(),
+		Filter:  filter.NewFilter(controllers.SRgvk, controllers.SROwnedLabel),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)
@@ -94,6 +96,7 @@ func main() {
 	if err = (&controllers.SpecialResourceModuleReconciler{
 		Log:    ctrl.Log,
 		Scheme: mgr.GetScheme(),
+		Filter: filter.NewFilter(controllers.SRMgvk, controllers.SRMOwnedLabel),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create module controller", "controller", "SpecialResourceModule")
 		os.Exit(1)

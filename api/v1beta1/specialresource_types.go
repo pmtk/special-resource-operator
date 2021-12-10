@@ -150,7 +150,13 @@ type SpecialResourceList struct {
 
 type SpecialResourceModuleWatch struct {
 	// +kubebuilder:validation:Required
-	Resource string `json:"resource"`
+	ApiVersion string `json:"apiVersion"`
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+	// +kubebuilder:validation:Optional
+	Namespace string `json:"namespace"`
 	// +kubebuilder:validation:Required
 	Path string `json:"path"`
 }

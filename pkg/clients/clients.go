@@ -56,6 +56,8 @@ type ClientsInterface interface {
 	CreateOrUpdate(ctx context.Context, obj client.Object, fn controllerutil.MutateFn) (controllerutil.OperationResult, error)
 	HasResource(resource schema.GroupVersionResource) (bool, error)
 	GetPlatform() (string, error)
+
+	GetClient() client.Client
 }
 
 type k8sClients struct {
@@ -88,6 +90,10 @@ func NewClients(runtimeClient client.Client, restConfig *restclient.Config, even
 		cachedDiscovery: cachedDiscoveryClient,
 		restConfig:      restConfig,
 	}, nil
+}
+
+func (k *k8sClients) GetClient() client.Client {
+	return k.runtimeClient
 }
 
 func (k *k8sClients) Update(ctx context.Context, obj client.Object) error {

@@ -12,7 +12,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
-	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
@@ -39,7 +38,7 @@ func (r *SpecialResourceReconciler) GetName() string {
 // SpecialResourcesReconcile Takes care of all specialresources in the cluster
 func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
-	log = r.Log.WithName(color.Print("reconcile: "+filter.Mode, color.Purple))
+	log = r.Log.WithName(color.Print("reconcile: "+r.Filter.GetMode(), color.Purple))
 
 	log.Info("Reconciling SpecialResource(s) in all Namespaces")
 
@@ -171,7 +170,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 				},
 				Spec: imagev1.ImageStreamSpec{},
 			}
-			res, err := ctrl.CreateOrUpdate(context.TODO(), clients.Interface, &is, noop)
+			res, err := ctrl.CreateOrUpdate(context.TODO(), clients.Interface.GetClient(), &is, noop)
 			if err != nil {
 				log.Info("pacevedo ImageStream. Error!", "error", err)
 			} else {
@@ -228,7 +227,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 					},
 				},
 			}
-			res, err := ctrl.CreateOrUpdate(context.TODO(), clients.Interface, &bc, noop)
+			res, err := ctrl.CreateOrUpdate(context.TODO(), clients.Interface.GetClient(), &bc, noop)
 			if err != nil {
 				log.Info("pacevedo. Error!", "error", err)
 			} else {

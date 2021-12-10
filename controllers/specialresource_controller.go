@@ -47,6 +47,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const (
+	SRgvk        = "SpecialResource"
+	SROwnedLabel = "specialresource.openshift.io/owned"
+)
+
 var (
 	log logr.Logger
 )
@@ -57,6 +62,7 @@ type SpecialResourceReconciler struct {
 	Scheme *runtime.Scheme
 
 	Metrics metrics.Metrics
+	Filter  filter.Filter
 
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource
@@ -136,7 +142,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: 1,
 			}).
-			WithEventFilter(filter.Predicate()).
+			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)
 	} else {
 		log.Info("Warning: assuming vanilla K8s. Manager will own a limited set of resources.")
@@ -156,7 +162,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: 1,
 			}).
-			WithEventFilter(filter.Predicate()).
+			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)
 	}
 }

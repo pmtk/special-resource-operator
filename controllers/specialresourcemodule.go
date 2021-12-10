@@ -24,19 +24,27 @@ import (
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
+	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/pkg/errors"
 
 	imagev1 "github.com/openshift/api/image/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+const (
+	SRMgvk        = "SpecialResourceModule"
+	SRMOwnedLabel = "specialresourcemodule.openshift.io/owned"
 )
 
 func createImageStream(name, namespace string) error {
@@ -45,12 +53,12 @@ func createImageStream(name, namespace string) error {
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"specialresourcemodule.openshift.io/owned": "true",
+				SRMOwnedLabel: "true",
 			},
 		},
 		Spec: imagev1.ImageStreamSpec{},
 	}
-	_, err := ctrl.CreateOrUpdate(context.TODO(), clients.Interface, &is, noop)
+	_, err := ctrl.CreateOrUpdate(context.TODO(), clients.Interface.GetClient(), &is, noop)
 	return err
 }
 
@@ -65,24 +73,6 @@ func getOCPVersions(watchList []srov1beta1.SpecialResourceModuleWatch) map[strin
 	return nil
 }
 
-func predicates(r *SpecialResourceModuleReconciler) predicate.Predicate {
-	//TODO check the resource is in r.watchedResources, apart from the regular ones: buildconfig, imagestream, build
-	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return false
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return false
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
-		},
-		GenericFunc: func(e event.GenericEvent) bool {
-			return false
-		},
-	}
-}
-
 func FindSRM(a []srov1beta1.SpecialResourceModule, x string) (int, bool) {
 	for i, n := range a {
 		if x == n.GetName() {
@@ -94,13 +84,66 @@ func FindSRM(a []srov1beta1.SpecialResourceModule, x string) (int, bool) {
 
 // SpecialResourceModuleReconciler reconciles a SpecialResource object
 type SpecialResourceModuleReconciler struct {
-	Log              logr.Logger
-	Scheme           *runtime.Scheme
-	watchedResources map[string]struct{}
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+	Filter filter.Filter
+	ctrl   controller.Controller
+
+	watchedResources map[srov1beta1.SpecialResourceModuleWatch]types.NamespacedName
 }
 
-func (r *SpecialResourceModuleReconciler) addToWatch(resource string) {
-	//TODO add to r.watchedResources. Check for duplicates. maybe a map is better.
+func (r *SpecialResourceModuleReconciler) addToWatch(srm srov1beta1.SpecialResourceModule, resource srov1beta1.SpecialResourceModuleWatch) error {
+	r.Log.Info("adding resource to watch", "resource", resource)
+
+	if r.watchedResources == nil {
+		r.watchedResources = make(map[srov1beta1.SpecialResourceModuleWatch]types.NamespacedName)
+	}
+
+	if _, ok := r.watchedResources[resource]; ok {
+		r.Log.Info("resource to watch already being watched!")
+		return nil
+	}
+
+	/*
+		TODO (if needed):
+		- allowing multiple SpecialResourceModule to be triggered by the same watched resource
+		  (map[srov1beta1.SpecialResourceModuleWatch][]types.NamespacedName)
+		- reacting on change of SRM's watched resources, i.e. SRM's watches changes - old binding must be removed
+		- remove Watch on deleted CR - to stop watching for types, otherwise the list will grow
+	*/
+
+	// NOTE: To observe the CR, the CRD must be installed first.
+
+	typeToWatch := &unstructured.Unstructured{}
+	typeToWatch.SetAPIVersion(resource.ApiVersion)
+	typeToWatch.SetKind(resource.Kind)
+	typeToWatch.SetName(resource.Name)
+
+	r.watchedResources[resource] = types.NamespacedName{Namespace: srm.Namespace, Name: srm.Name}
+
+	// f returns a NamespacedName (SRM) to be reconciled for incoming Object
+	f := func(o client.Object) []reconcile.Request {
+		gvk := o.GetObjectKind().GroupVersionKind()
+		r.Log.Info("matcher for watched objects", "gvk", gvk, "name", o.GetName(), "ns", o.GetNamespace())
+
+		for k, v := range r.watchedResources {
+			apiVer := ""
+			if gvk.Group != "" {
+				apiVer = fmt.Sprintf("%s/%s", gvk.Group, gvk.Version)
+			} else {
+				apiVer = gvk.Version
+			}
+
+			if k.Kind == gvk.Kind && k.ApiVersion == apiVer && k.Name == o.GetName() && k.Namespace == o.GetNamespace() {
+				// NOTE: Alternatively, name, namespace & changes to property @ Path could be filtered out using predicates
+				r.Log.Info("found a SRM for incoming watched resource", "resource", k, "special-resource-module", v)
+				return []reconcile.Request{{NamespacedName: v}}
+			}
+		}
+		return []reconcile.Request{}
+	}
+
+	return r.ctrl.Watch(&source.Kind{Type: typeToWatch}, handler.EnqueueRequestsFromMapFunc(f) /*, predicate.Predicate...*/)
 }
 
 // Reconcile Reconiliation entry point
@@ -131,7 +174,7 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	for _, watchElement := range resource.Spec.Watch {
-		r.addToWatch(watchElement.Resource)
+		r.addToWatch(resource, watchElement)
 	}
 
 	clusterVersions := getOCPVersions(resource.Spec.Watch)
@@ -153,21 +196,24 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 
 // SetupWithManager main initalization for manager
 func (r *SpecialResourceModuleReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	platform, err := clients.GetPlatform()
+	platform, err := clients.Interface.GetPlatform()
 	if err != nil {
 		return err
 	}
 
 	if platform == "OCP" {
-		return ctrl.NewControllerManagedBy(mgr).
+		c, err := ctrl.NewControllerManagedBy(mgr).
 			For(&srov1beta1.SpecialResourceModule{}).
 			Owns(&imagev1.ImageStream{}).
 			Owns(&buildv1.BuildConfig{}).
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: 1,
 			}).
-			WithEventFilter(predicates(r)).
-			Complete(r)
+			// WithEventFilter(predicates(r)).
+			WithEventFilter(r.Filter.GetPredicates()).
+			Build(r)
+		r.ctrl = c
+		return err
 	}
 	return errors.New("SpecialResourceModules only work in OCP")
 }

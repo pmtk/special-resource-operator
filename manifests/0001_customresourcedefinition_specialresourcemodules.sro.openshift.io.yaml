@@ -158,13 +158,21 @@ spec:
               watch:
                 items:
                   properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
                     path:
                       type: string
-                    resource:
-                      type: string
                   required:
+                  - apiVersion
+                  - kind
+                  - name
                   - path
-                  - resource
                   type: object
                 type: array
             required:
