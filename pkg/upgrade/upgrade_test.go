@@ -229,23 +229,21 @@ var _ = Describe("ClusterInfo", func() {
 		}, testCases...)
 	})
 
-	When("NFD is not installed", func() {
-		It("will hint that with an error message", func() {
-			cache.Node.List.Items = []unstructured.Unstructured{{}}
-			cache.Node.Count = int64(len(cache.Node.List.Items))
+	It("will hint that with an error message when NFD is not installed", func() {
+		cache.Node.List.Items = []unstructured.Unstructured{{}}
+		cache.Node.Count = int64(len(cache.Node.List.Items))
 
-			_, err := clusterInfo.GetClusterInfo()
+		_, err := clusterInfo.GetClusterInfo()
 
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("is NFD running?"))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("is NFD running?"))
 
-			cache.Node.List.Items[0].SetLabels(map[string]string{
-				labelKernelVersionFull: "fake",
-			})
-			_, err = clusterInfo.GetClusterInfo()
-
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("is NFD running?"))
+		cache.Node.List.Items[0].SetLabels(map[string]string{
+			labelKernelVersionFull: "fake",
 		})
+		_, err = clusterInfo.GetClusterInfo()
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("is NFD running?"))
 	})
 })
