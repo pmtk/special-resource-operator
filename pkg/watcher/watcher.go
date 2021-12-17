@@ -15,42 +15,40 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type WatchedResource struct {
-	ApiVersion string
-	Kind       string
-	Name       string
-	Namespace  string
+	ApiVersion string `name:"apiVersion"`
+	Kind       string `name:"kind"`
+	Name       string `name:"name"`
+	Namespace  string `name:"namespace"`
+}
+
+type WatchedResourceWithPath struct {
+	WatchedResource
+	Path string `name:"path"`
 }
 
 // pathData contains last known value of property and a list of Namespaced Names (SpecialResourceModules)
 // that should be reconciled if that `Data` changes
 type pathData struct {
-	Data            string
+	Data            string `name:"data"`
 	NamespacedNames []types.NamespacedName
 }
 
 type Path = string
 
-// pathToNNSetMap maps Resource's Path to a slice of NamespacedName
-type pathToNNSetMap = map[Path]pathData
-
-// watchedResourcesMap maps WatchedResources to Paths which will trigger reconciliation specific of NamespacedNames
-type watchedResourcesMap = map[WatchedResource]pathToNNSetMap
-
-func WatchedResourceFromSRM(srm srov1beta1.SpecialResourceModuleWatch) WatchedResource {
-	return WatchedResource{
-		ApiVersion: srm.ApiVersion,
-		Kind:       srm.Kind,
-		Name:       srm.Name,
-		Namespace:  srm.Namespace,
+func SRMWFromWatchedResourceWithPath(wrp WatchedResourceWithPath) srov1beta1.SpecialResourceModuleWatch {
+	return srov1beta1.SpecialResourceModuleWatch{
+		ApiVersion: wrp.ApiVersion,
+		Kind:       wrp.Kind,
+		Name:       wrp.Name,
+		Namespace:  wrp.Namespace,
+		Path:       wrp.Path,
 	}
 }
 
@@ -70,42 +68,99 @@ func getAPIVersion(gvk schema.GroupVersionKind) string {
 }
 
 type Watcher interface {
-	// AddResourceToWatch registers given WatchedResource to trigger Reconciliation of CR specified by a NamespacedName
-	AddResourceToWatch(srov1beta1.SpecialResourceModuleWatch, types.NamespacedName) error
-
 	// ReconcileWatches is a general function that updates list of watched resources based on given SpecialResourceModule
 	ReconcileWatches(srov1beta1.SpecialResourceModule) error
-
-	// TODO: Add mechanism to handle change of CR's WatchedResources (e.g. change due to user's )
-	// RemoveResourceFromWatch(WatchedResource) error
-	// RemoveWatchForCR(types.NamespacedName) error
 }
 
 func New(ctrl controller.Controller) Watcher {
 	return &watcher{
-		log:              zap.New(zap.UseDevMode(true)).WithName(color.Print("watcher", color.Blue)),
-		ctrl:             ctrl,
-		watchedResources: make(map[WatchedResource]map[string]pathData),
+		log:               zap.New(zap.UseDevMode(true)).WithName(color.Print("watcher", color.Blue)),
+		ctrl:              ctrl,
+		watchedResToPaths: make(map[WatchedResource][]string),
+		watchedResToData:  make(map[WatchedResourceWithPath]pathData),
 	}
 }
 
 type watcher struct {
-	log              logr.Logger
-	ctrl             controller.Controller
-	watchedResources watchedResourcesMap
+	log  logr.Logger
+	ctrl controller.Controller
+
+	watchedResToPaths map[WatchedResource][]Path
+	watchedResToData  map[WatchedResourceWithPath]pathData
+}
+
+func checkIfContainsSRM(desiredWatches []srov1beta1.SpecialResourceModuleWatch, currentlyWatched srov1beta1.SpecialResourceModuleWatch) bool {
+	for _, w := range desiredWatches {
+		if w == currentlyWatched {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (w *watcher) ReconcileWatches(srm srov1beta1.SpecialResourceModule) error {
+
+	nn := types.NamespacedName{
+		Name:      srm.GetName(),
+		Namespace: srm.GetNamespace(),
+	}
+
+	// Removal of unneeded resources to be watched
+	// Iterate over map of WatchedResourceWithPath to check if the resource is present in incoming SpecialResourceModule.
+	// If it's absent - SRM's NamespaceName will be removed from the list of NamespacedNames to reconcile.
+	for watchedResourceWithPath, pathData := range w.watchedResToData {
+		removeFromNamespacedNamesToTrigger := !checkIfContainsSRM(srm.Spec.Watch, SRMWFromWatchedResourceWithPath(watchedResourceWithPath))
+
+		if removeFromNamespacedNamesToTrigger {
+			for idx, nnToTrigger := range pathData.NamespacedNames {
+				if nnToTrigger == nn {
+					w.log.Info("removing watched resource", "resource", watchedResourceWithPath, "namespacedName", nnToTrigger)
+					pathData.NamespacedNames = append(pathData.NamespacedNames[:idx], pathData.NamespacedNames[idx+1:]...)
+					w.watchedResToData[watchedResourceWithPath] = pathData
+					break
+				}
+			}
+		}
+
+		// If there's no SRM to trigger reconciliation for for this resource+path: remove it.
+		if len(pathData.NamespacedNames) == 0 {
+			w.log.Info("empty list of CR to trigger for resource", "resource", watchedResourceWithPath)
+			delete(w.watchedResToData, watchedResourceWithPath)
+
+			if paths, ok := w.watchedResToPaths[watchedResourceWithPath.WatchedResource]; ok {
+				for idx, path := range paths {
+					if path == watchedResourceWithPath.Path {
+						w.watchedResToPaths[watchedResourceWithPath.WatchedResource] = append(w.watchedResToPaths[watchedResourceWithPath.WatchedResource][:idx],
+							w.watchedResToPaths[watchedResourceWithPath.WatchedResource][idx+1:]...)
+						break
+					}
+				}
+
+				if len(w.watchedResToPaths[watchedResourceWithPath.WatchedResource]) == 0 {
+					w.log.Info("empty list of paths to observe", "resource", watchedResourceWithPath.WatchedResource)
+					delete(w.watchedResToPaths, watchedResourceWithPath.WatchedResource)
+				}
+			}
+		}
+	}
+
+	// Addition
+	for _, toWatch := range srm.Spec.Watch {
+		if err := w.tryAddResourceToWatch(toWatch, nn); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (w *watcher) AddResourceToWatch(r srov1beta1.SpecialResourceModuleWatch, nnToTrigger types.NamespacedName) error {
+func (w *watcher) tryAddResourceToWatch(r srov1beta1.SpecialResourceModuleWatch, nnToTrigger types.NamespacedName) error {
 	if w == nil {
 		return errors.New("watcher is not initialized")
 	}
 
 	l := w.log.WithValues("resource", r, "triggers", nnToTrigger)
-	l.Info("adding resource to be watched")
 
 	wr := WatchedResource{
 		ApiVersion: r.ApiVersion,
@@ -125,7 +180,7 @@ func (w *watcher) AddResourceToWatch(r srov1beta1.SpecialResourceModuleWatch, nn
 	// Because of that reason, mapping function takes care of filtering out.
 	if err := w.ctrl.Watch(
 		&source.Kind{Type: watchedResourceToUnstructured(wr)},
-		handler.EnqueueRequestsFromMapFunc(w.mapper) /*, w.genPredicates() */); err != nil {
+		handler.EnqueueRequestsFromMapFunc(w.mapper)); err != nil {
 
 		l.Error(err, "failed to start watching a resource")
 		return err
@@ -133,23 +188,18 @@ func (w *watcher) AddResourceToWatch(r srov1beta1.SpecialResourceModuleWatch, nn
 
 	// TODO: Potential race? Registering first, then adding to a map = mapper func might get invoked before adding to a map?
 	w.addToWatched(wr, r.Path, nnToTrigger)
+	l.Info("added resource to be watched")
 
 	return nil
 }
 
-// func (w *watcher) RemoveResourceFromWatch(WatchedResource) error {
-// 	// TODO
-// 	return nil
-// }
-
 func (w *watcher) isAlreadyBeingWatched(wr WatchedResource, path string, nnToTrigger types.NamespacedName) bool {
 
-	if paths, ok := w.watchedResources[wr]; ok {
-		if pathData, ok := paths[path]; ok {
-			for _, nn := range pathData.NamespacedNames {
-				if nn == nnToTrigger {
-					return true
-				}
+	wrp := WatchedResourceWithPath{WatchedResource: wr, Path: path}
+	if nns, ok := w.watchedResToData[wrp]; ok {
+		for _, nn := range nns.NamespacedNames {
+			if nn == nnToTrigger {
+				return true
 			}
 		}
 	}
@@ -158,23 +208,31 @@ func (w *watcher) isAlreadyBeingWatched(wr WatchedResource, path string, nnToTri
 }
 
 func (w *watcher) addToWatched(wr WatchedResource, path string, nnToTrigger types.NamespacedName) {
-
 	var ok bool
-	var paths map[string]pathData
-	if paths, ok = w.watchedResources[wr]; !ok {
-		paths = make(map[string]pathData)
-	}
-
-	var pd pathData
-	if pd, ok = paths[path]; !ok {
-		pd = pathData{
-			NamespacedNames: make([]types.NamespacedName, 0),
+	var paths []Path
+	addPath := true
+	if paths, ok = w.watchedResToPaths[wr]; !ok {
+		paths = make([]string, 0)
+	} else {
+		for _, p := range paths {
+			if p == path {
+				addPath = false
+				break
+			}
 		}
 	}
+	if addPath {
+		paths = append(paths, path)
+	}
+	w.watchedResToPaths[wr] = paths
 
+	wrd := WatchedResourceWithPath{WatchedResource: wr, Path: path}
+	var pd pathData
+	if pd, ok = w.watchedResToData[wrd]; !ok {
+		pd.NamespacedNames = make([]types.NamespacedName, 0)
+	}
 	pd.NamespacedNames = append(pd.NamespacedNames, nnToTrigger)
-	paths[path] = pd
-	w.watchedResources[wr] = paths
+	w.watchedResToData[wrd] = pd
 }
 
 // mapper returns a list of NamespacedNames based on given Object.
@@ -194,37 +252,44 @@ func (w *watcher) mapper(o client.Object) []reconcile.Request {
 		Namespace:  o.GetNamespace(),
 	}
 
-	unstr := o.(*unstructured.Unstructured)
-
 	crsToTrigger := []reconcile.Request{}
 
-	if wr, ok := w.watchedResources[wrObj]; ok {
-		for path, pathData := range wr {
+	var unstr *unstructured.Unstructured
+	var ok bool
+	if unstr, ok = o.(*unstructured.Unstructured); !ok {
+		w.log.Info("failed to convert incoming object to Unstructed")
+		return crsToTrigger
+	}
 
+	if paths, ok := w.watchedResToPaths[wrObj]; ok {
+		for _, path := range paths {
 			// TODO: Substitute with proper jsonpath?
+			// Get current value of property at path
 			val, found, err := unstructured.NestedString(unstr.Object, strings.Split(path, ".")...)
 			if err != nil {
-				w.log.Error(err, "failed to get nested string", "resource", wr)
+				w.log.Error(err, "failed to get nested string", "resource", wrObj)
 				continue
 			}
 			if !found {
-				w.log.Info("could not obtain property at specified path", "path", path, "resource", wr)
+				w.log.Info("could not obtain property at specified path", "path", path, "resource", wrObj)
 				continue
 			}
 			w.log.Info("obtained value @ path", "path", path, "value", val)
 
-			if pathData.Data != val {
-				for _, nn := range pathData.NamespacedNames {
-					crsToTrigger = append(crsToTrigger, reconcile.Request{NamespacedName: nn})
-				}
-			} else {
-				w.log.Info("data did not change - no retrigger")
-			}
+			// Compare obtained value against stored one
+			wrd := WatchedResourceWithPath{WatchedResource: wrObj, Path: path}
+			if pathData, ok := w.watchedResToData[wrd]; ok {
+				if pathData.Data != val {
+					for _, nn := range pathData.NamespacedNames {
+						crsToTrigger = append(crsToTrigger, reconcile.Request{NamespacedName: nn})
+					}
 
-			// Update pathData.Data (which stores last known value specified by a `path`)
-			pathData.Data = val
-			wr[path] = pathData
-			w.watchedResources[wrObj] = wr
+					pathData.Data = val
+					w.watchedResToData[wrd] = pathData
+				} else {
+					w.log.Info("data did not change - no retrigger")
+				}
+			}
 		}
 	}
 
@@ -233,13 +298,4 @@ func (w *watcher) mapper(o client.Object) []reconcile.Request {
 	}
 
 	return crsToTrigger
-}
-
-func (w *watcher) genPredicates() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc:  func(e event.CreateEvent) bool { return true },
-		DeleteFunc:  func(event.DeleteEvent) bool { return true },
-		UpdateFunc:  func(e event.UpdateEvent) bool { return true },
-		GenericFunc: func(event.GenericEvent) bool { return true },
-	}
 }
