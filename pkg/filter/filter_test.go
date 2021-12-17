@@ -1,6 +1,8 @@
-package filter_test
+package filter
 
 import (
+	"io/ioutil"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -8,13 +10,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/filter"
-	buildv1 "github.com/openshift/api/build/v1"
-	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
@@ -24,70 +22,10 @@ func TestFilter(t *testing.T) {
 	RunSpecs(t, "Filter Suite")
 }
 
-var _ = Describe("SetLabel", func() {
-	objs := []runtime.Object{
-		&v1.DaemonSet{
-			TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"},
-		},
-		&v1.Deployment{
-			TypeMeta: metav1.TypeMeta{Kind: "Deployment"},
-		},
-		&v1.StatefulSet{
-			TypeMeta: metav1.TypeMeta{Kind: "StatefulSet"},
-		},
-	}
-
-	entries := make([]TableEntry, 0, len(objs))
-
-	for _, o := range objs {
-		entries = append(entries, Entry(o.GetObjectKind().GroupVersionKind().Kind, o))
-	}
-
-	testFunc := func(o client.Object) {
-		mo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
-		Expect(err).NotTo(HaveOccurred())
-
-		uo := unstructured.Unstructured{Object: mo}
-
-		// Create the map manually, otherwise SetLabel returns an error
-		err = unstructured.SetNestedStringMap(uo.Object, map[string]string{}, "spec", "template", "metadata", "labels")
-		Expect(err).NotTo(HaveOccurred())
-
-		err = filter.SetLabel(&uo)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(uo.GetLabels()).To(HaveKeyWithValue("specialresource.openshift.io/owned", "true"))
-
-		v, found, err := unstructured.NestedString(
-			uo.Object,
-			"spec",
-			"template",
-			"metadata",
-			"labels",
-			"specialresource.openshift.io/owned")
-
-		Expect(err).NotTo(HaveOccurred())
-		Expect(found).To(BeTrue())
-		Expect(v).To(Equal("true"))
-	}
-
-	DescribeTable("should the label", testFunc, entries...)
-
-	It("should the label for BuildConfig", func() {
-		bc := buildv1.BuildConfig{
-			TypeMeta: metav1.TypeMeta{Kind: "BuildConfig"},
-		}
-
-		mo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&bc)
-		Expect(err).NotTo(HaveOccurred())
-
-		uo := unstructured.Unstructured{Object: mo}
-
-		err = filter.SetLabel(&uo)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(uo.GetLabels()).To(HaveKeyWithValue("specialresource.openshift.io/owned", "true"))
-	})
-})
+const (
+	ownedLabel = "specialresource.openshift.io/owned"
+	kind       = "SpecialResource"
+)
 
 var _ = Describe("IsSpecialResource", func() {
 	cases := []struct {
@@ -96,9 +34,9 @@ var _ = Describe("IsSpecialResource", func() {
 		matcher types.GomegaMatcher
 	}{
 		{
-			name: "SpecialResource",
+			name: kind,
 			obj: &v1beta1.SpecialResource{
-				TypeMeta: metav1.TypeMeta{Kind: "SpecialResource"},
+				TypeMeta: metav1.TypeMeta{Kind: kind},
 			},
 			matcher: BeTrue(),
 		},
@@ -106,7 +44,7 @@ var _ = Describe("IsSpecialResource", func() {
 			name: "Pod owned by SRO",
 			obj: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"specialresource.openshift.io/owned": "true"},
+					Labels: map[string]string{ownedLabel: "true"},
 				},
 			},
 			matcher: BeFalse(),
@@ -147,7 +85,12 @@ var _ = Describe("IsSpecialResource", func() {
 	DescribeTable(
 		"should return the correct value",
 		func(obj client.Object, m types.GomegaMatcher) {
-			Expect(filter.IsSpecialResource(obj)).To(m)
+			f := filter{
+				log:        zap.New(zap.WriteTo(ioutil.Discard)),
+				kind:       kind,
+				ownedLabel: ownedLabel,
+			}
+			Expect(f.isSpecialResource(obj)).To(m)
 		},
 		entries...)
 })
@@ -163,7 +106,7 @@ var _ = Describe("Owned", func() {
 			obj: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					OwnerReferences: []metav1.OwnerReference{
-						{Kind: "SpecialResource"},
+						{Kind: kind},
 					},
 				},
 			},
@@ -173,7 +116,7 @@ var _ = Describe("Owned", func() {
 			name: "via labels",
 			obj: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"specialresource.openshift.io/owned": "whatever"},
+					Labels: map[string]string{ownedLabel: "whatever"},
 				},
 			},
 			matcher: BeTrue(),
@@ -194,16 +137,27 @@ var _ = Describe("Owned", func() {
 	DescribeTable(
 		"should return the expected value",
 		func(obj client.Object, m types.GomegaMatcher) {
-			Expect(filter.Owned(obj)).To(m)
+			f := filter{
+				log:        zap.New(zap.WriteTo(ioutil.Discard)),
+				kind:       kind,
+				ownedLabel: ownedLabel,
+			}
+			Expect(f.owned(obj)).To(m)
 		},
 		entries...,
 	)
 })
 
 var _ = Describe("Predicate", func() {
-	resetMode := func() { filter.Mode = "" }
+	var f filter
 
-	AfterEach(resetMode)
+	BeforeEach(func() {
+		f = filter{
+			log:        zap.New(zap.WriteTo(ioutil.Discard)),
+			kind:       kind,
+			ownedLabel: ownedLabel,
+		}
+	})
 
 	Context("CreateFunc", func() {
 		cases := []struct {
@@ -221,7 +175,7 @@ var _ = Describe("Predicate", func() {
 				obj: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: "SpecialResource"},
+							{Kind: kind},
 						},
 					},
 				},
@@ -243,10 +197,10 @@ var _ = Describe("Predicate", func() {
 		DescribeTable(
 			"should work as expected",
 			func(obj client.Object, m types.GomegaMatcher) {
-				ret := filter.Predicate().Create(event.CreateEvent{Object: obj})
+				ret := f.GetPredicates().Create(event.CreateEvent{Object: obj})
 
 				Expect(ret).To(m)
-				Expect(filter.Mode).To(Equal("CREATE"))
+				Expect(f.GetMode()).To(Equal("CREATE"))
 			},
 			entries...,
 		)
@@ -287,10 +241,10 @@ var _ = Describe("Predicate", func() {
 		DescribeTable(
 			"should work as expected",
 			func(obj client.Object, m types.GomegaMatcher) {
-				ret := filter.Predicate().Delete(event.DeleteEvent{Object: obj})
+				ret := f.GetPredicates().Delete(event.DeleteEvent{Object: obj})
 
 				Expect(ret).To(m)
-				Expect(filter.Mode).To(Equal("DELETE"))
+				Expect(f.GetMode()).To(Equal("DELETE"))
 			},
 			entries...,
 		)
@@ -312,7 +266,7 @@ var _ = Describe("Predicate", func() {
 				obj: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: "SpecialResource"},
+							{Kind: kind},
 						},
 					},
 				},
@@ -334,10 +288,10 @@ var _ = Describe("Predicate", func() {
 		DescribeTable(
 			"should return the correct value",
 			func(obj client.Object, m types.GomegaMatcher) {
-				ret := filter.Predicate().Generic(event.GenericEvent{Object: obj})
+				ret := f.GetPredicates().Generic(event.GenericEvent{Object: obj})
 
 				Expect(ret).To(m)
-				Expect(filter.Mode).To(Equal("GENERIC"))
+				Expect(f.GetMode()).To(Equal("GENERIC"))
 			},
 			entries...,
 		)
