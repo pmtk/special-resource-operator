@@ -24,7 +24,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -34,12 +33,12 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
+	"github.com/openshift-psap/special-resource-operator/pkg/watcher"
 	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/pkg/errors"
 
 	imagev1 "github.com/openshift/api/image/v1"
 
-	"github.com/oliveagle/jsonpath"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -82,32 +81,6 @@ func getResource(kind, apiVersion, namespace, name string) (unstructured.Unstruc
 	key := client.ObjectKeyFromObject(&obj)
 	err := clients.Interface.Get(context.Background(), key, &obj)
 	return obj, err
-}
-
-func getJSONPath(path string, obj unstructured.Unstructured) ([]string, error) {
-	expression, err := jsonpath.Compile(path)
-	if err != nil {
-		return nil, err
-	}
-	match, err := expression.Lookup(obj.Object)
-	if err != nil {
-		return nil, err
-	}
-	switch reflect.TypeOf(match).Kind() {
-	case reflect.Slice:
-		if res, ok := match.([]interface{}); !ok {
-			return nil, errors.New("Error converting result to string")
-		} else {
-			strSlice := make([]string, 0)
-			for _, element := range res {
-				strSlice = append(strSlice, element.(string))
-			}
-			return strSlice, nil
-		}
-	case reflect.String:
-		return []string{match.(string)}, nil
-	}
-	return nil, errors.New("Unsupported result")
 }
 
 func getVersionInfoFromImage(entry string, reg registry.Registry) (string, OCPVersionInfo, error) {
@@ -204,7 +177,7 @@ func getOCPVersions(watchList []srov1beta1.SpecialResourceModuleWatch, reg regis
 		if err != nil {
 			return nil, err
 		}
-		result, err := getJSONPath(resource.Path, obj)
+		result, err := watcher.GetJSONPath(resource.Path, obj)
 		if err != nil {
 			return nil, err
 		}
@@ -242,28 +215,19 @@ func FindSRM(a []srov1beta1.SpecialResourceModule, x string) (int, bool) {
 
 // SpecialResourceModuleReconciler reconciles a SpecialResource object
 type SpecialResourceModuleReconciler struct {
-	Log              logr.Logger
-	Scheme           *runtime.Scheme
-	watchedResources map[string]int
-	reg              registry.Registry
-	filter           filter.Filter
+	Log     logr.Logger
+	Scheme  *runtime.Scheme
+	reg     registry.Registry
+	filter  filter.Filter
+	watcher watcher.Watcher
 }
 
 func NewSpecialResourceModuleReconciler(log logr.Logger, scheme *runtime.Scheme, reg registry.Registry, f filter.Filter) SpecialResourceModuleReconciler {
 	return SpecialResourceModuleReconciler{
-		Log:              log,
-		Scheme:           scheme,
-		watchedResources: make(map[string]int),
-		reg:              reg,
-		filter:           f,
-	}
-}
-
-func (r *SpecialResourceModuleReconciler) addToWatch(resource string) {
-	if _, ok := r.watchedResources[resource]; !ok {
-		r.watchedResources[resource] = 1
-	} else {
-		r.watchedResources[resource]++
+		Log:    log,
+		Scheme: scheme,
+		reg:    reg,
+		filter: f,
 	}
 }
 
@@ -298,9 +262,10 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 		resource.Status.ImageStreamCreated = true
 	}
 
-	/*for _, watchElement := range resource.Spec.Watch {
-		r.addToWatch(watchElement)
-	}*/
+	if err := r.watcher.ReconcileWatches(resource); err != nil {
+		logModule.Error(err, "failed to update watched resources")
+		return reconcile.Result{}, err
+	}
 
 	//TODO cache images, wont change dynamically.
 	clusterVersions, err := getOCPVersions(resource.Spec.Watch, r.reg)
@@ -335,7 +300,7 @@ func (r *SpecialResourceModuleReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	if platform == "OCP" {
-		return ctrl.NewControllerManagedBy(mgr).
+		c, err := ctrl.NewControllerManagedBy(mgr).
 			For(&srov1beta1.SpecialResourceModule{}).
 			Owns(&imagev1.ImageStream{}).
 			Owns(&buildv1.BuildConfig{}).
@@ -343,7 +308,10 @@ func (r *SpecialResourceModuleReconciler) SetupWithManager(mgr ctrl.Manager) err
 				MaxConcurrentReconciles: 1,
 			}).
 			WithEventFilter(r.filter.GetPredicates()).
-			Complete(r)
+			Build(r)
+
+		r.watcher = watcher.New(c)
+		return err
 	}
 	return errors.New("SpecialResourceModules only work in OCP")
 }
