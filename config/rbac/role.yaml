@@ -487,6 +487,7 @@ rules:
   - clusterversions
   verbs:
   - get
+  - list
 - apiGroups:
   - config.openshift.io
   resources:
