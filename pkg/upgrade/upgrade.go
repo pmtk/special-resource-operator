@@ -36,7 +36,7 @@ type NodeVersion struct {
 	DriverToolkit  registry.DriverToolkitEntry `json:"driverToolkit"`
 }
 
-//go:generate mockgen -source=upgrade.go -package=upgrade -destination=mock_upgrade_api.go
+//go:generate mockgen -source=upgrade.go -package=mocks -destination=../../internal/mocks/mock_upgrade_api.go
 
 type ClusterInfo interface {
 	GetClusterInfo(context.Context, *corev1.NodeList) (map[string]NodeVersion, error)

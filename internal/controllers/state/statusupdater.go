@@ -13,7 +13,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-//go:generate mockgen -source=statusupdater.go -package=state -destination=mock_statusupdater_api.go
+//go:generate mockgen -source=statusupdater.go -package=mocks -destination=../../mocks/mock_statusupdater_api.go
 
 type StatusUpdater interface {
 	UpdateWithState(context.Context, *v1beta1.SpecialResource, string)

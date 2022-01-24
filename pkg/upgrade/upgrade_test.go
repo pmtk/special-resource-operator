@@ -1,4 +1,4 @@
-package upgrade
+package upgrade_test
 
 import (
 	"context"
@@ -14,8 +14,15 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
+	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+)
+
+const (
+	labelKernelVersionFull    = "feature.node.kubernetes.io/kernel-version.full"
+	labelOSReleaseVersionID   = "feature.node.kubernetes.io/system-os_release.VERSION_ID"
+	labelOSReleaseRHELVersion = "feature.node.kubernetes.io/system-os_release.RHEL_VERSION"
 )
 
 func TestPkgUpgrade(t *testing.T) {
@@ -50,17 +57,17 @@ func (fk *fakeLayer) MediaType() (types.MediaType, error) {
 var _ = Describe("ClusterInfo", func() {
 	var (
 		mockCtrl     *gomock.Controller
-		mockRegistry *registry.MockRegistry
-		mockCluster  *cluster.MockCluster
-		clusterInfo  ClusterInfo
+		mockRegistry *mocks.MockRegistry
+		mockCluster  *mocks.MockCluster
+		clusterInfo  upgrade.ClusterInfo
 		nodesList    corev1.NodeList
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockRegistry = registry.NewMockRegistry(mockCtrl)
-		mockCluster = cluster.NewMockCluster(mockCtrl)
-		clusterInfo = NewClusterInfo(mockRegistry, mockCluster)
+		mockRegistry = mocks.NewMockRegistry(mockCtrl)
+		mockCluster = mocks.NewMockCluster(mockCtrl)
+		clusterInfo = upgrade.NewClusterInfo(mockRegistry, mockCluster)
 		nodesList = corev1.NodeList{}
 		nodesList.Items = []corev1.Node{}
 	})
@@ -105,7 +112,7 @@ var _ = Describe("ClusterInfo", func() {
 	}
 
 	Context("has all required data (happy flow)", func() {
-		DescribeTable("returns information for", func(input testInput, testExpects map[string]NodeVersion) {
+		DescribeTable("returns information for", func(input testInput, testExpects map[string]upgrade.NodeVersion) {
 			for _, labels := range input.nodesLabels {
 				node := corev1.Node{}
 				node.SetLabels(labels)
@@ -137,7 +144,7 @@ var _ = Describe("ClusterInfo", func() {
 					dtkImage:             dtkImageURL,
 					dtk:                  clusterDTK,
 				},
-				map[string]NodeVersion{
+				map[string]upgrade.NodeVersion{
 					kernelRT: {
 						OSVersion:      fmt.Sprintf("%s.%s", systemMajor, systemMinor),
 						OSMajor:        fmt.Sprintf("%s%s", system, systemMajor),
@@ -162,7 +169,7 @@ var _ = Describe("ClusterInfo", func() {
 					dtkImage:             dtkImageURL,
 					dtk:                  clusterDTK,
 				},
-				map[string]NodeVersion{
+				map[string]upgrade.NodeVersion{
 					kernel: {
 						OSVersion:      fmt.Sprintf("%s.%s", systemMajor, systemMinor),
 						OSMajor:        fmt.Sprintf("%s%s", system, systemMajor),
@@ -190,7 +197,7 @@ var _ = Describe("ClusterInfo", func() {
 					dtkImage:             dtkImageURL,
 					dtk:                  clusterDTK,
 				},
-				map[string]NodeVersion{
+				map[string]upgrade.NodeVersion{
 					kernel: {
 						OSVersion:      fmt.Sprintf("%s.%s", systemMajor, systemMinor),
 						OSMajor:        fmt.Sprintf("%s%s", system, systemMajor),

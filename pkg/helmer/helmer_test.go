@@ -10,10 +10,9 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/repo"
@@ -24,8 +23,8 @@ const pluginsDir = "../../helm-plugins"
 
 var (
 	ctrl           *gomock.Controller
-	mockCreator    *resource.MockCreator
-	mockKubeClient *clients.MockClientsInterface
+	mockCreator    *mocks.MockCreator
+	mockKubeClient *mocks.MockClientsInterface
 )
 
 func TestHelmer(t *testing.T) {
@@ -33,8 +32,8 @@ func TestHelmer(t *testing.T) {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockCreator = resource.NewMockCreator(ctrl)
-		mockKubeClient = clients.NewMockClientsInterface(ctrl)
+		mockCreator = mocks.NewMockCreator(ctrl)
+		mockKubeClient = mocks.NewMockClientsInterface(ctrl)
 	})
 
 	RunSpecs(t, "Helmer Suite")

@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-//go:generate mockgen -source=poll.go -package=poll -destination=mock_poll_api.go
+//go:generate mockgen -source=poll.go -package=mocks -destination=../../internal/mocks/mock_poll_api.go
 
 type PollActions interface {
 	ForResourceUnavailability(context.Context, *unstructured.Unstructured) error

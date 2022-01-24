@@ -20,12 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
-	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
-	"github.com/openshift-psap/special-resource-operator/pkg/poll"
-	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 )
 
 var (
@@ -295,22 +290,22 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 var _ = Describe("creator_CreateFromYAML", func() {
 	var (
 		ctrl          *gomock.Controller
-		kubeClient    *clients.MockClientsInterface
-		mockLifecycle *lifecycle.MockLifecycle
-		metricsClient *metrics.MockMetrics
-		pollActions   *poll.MockPollActions
-		kernelData    *kernel.MockKernelData
-		proxyAPI      *proxy.MockProxyAPI
+		kubeClient    *mocks.MockClientsInterface
+		mockLifecycle *mocks.MockLifecycle
+		metricsClient *mocks.MockMetrics
+		pollActions   *mocks.MockPollActions
+		kernelData    *mocks.MockKernelData
+		proxyAPI      *mocks.MockProxyAPI
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		kubeClient = clients.NewMockClientsInterface(ctrl)
-		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
-		metricsClient = metrics.NewMockMetrics(ctrl)
-		pollActions = poll.NewMockPollActions(ctrl)
-		kernelData = kernel.NewMockKernelData(ctrl)
-		proxyAPI = proxy.NewMockProxyAPI(ctrl)
+		kubeClient = mocks.NewMockClientsInterface(ctrl)
+		mockLifecycle = mocks.NewMockLifecycle(ctrl)
+		metricsClient = mocks.NewMockMetrics(ctrl)
+		pollActions = mocks.NewMockPollActions(ctrl)
+		kernelData = mocks.NewMockKernelData(ctrl)
+		proxyAPI = mocks.NewMockProxyAPI(ctrl)
 	})
 
 	AfterEach(func() {
@@ -491,14 +486,14 @@ spec:
 var _ = Describe("creator_CheckForImagePullBackOff", func() {
 	var (
 		ctrl        *gomock.Controller
-		kubeClient  *clients.MockClientsInterface
-		pollActions *poll.MockPollActions
+		kubeClient  *mocks.MockClientsInterface
+		pollActions *mocks.MockPollActions
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		kubeClient = clients.NewMockClientsInterface(ctrl)
-		pollActions = poll.NewMockPollActions(ctrl)
+		kubeClient = mocks.NewMockClientsInterface(ctrl)
+		pollActions = mocks.NewMockPollActions(ctrl)
 	})
 
 	AfterEach(func() {

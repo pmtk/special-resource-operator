@@ -1,21 +1,29 @@
-package proxy
+package proxy_test
 
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
+	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
+	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	httpProxy     = "http-host-with-proxy"
+	httpsProxy    = "https-host-with-proxy"
+	noProxy       = "host-without-proxy"
+	trustedCAName = "trusted-ca-name"
 )
 
 func TestProxy(t *testing.T) {
@@ -24,11 +32,36 @@ func TestProxy(t *testing.T) {
 }
 
 var _ = Describe("Setup", func() {
-	var proxyStruct proxy
+	var (
+		ctrl       *gomock.Controller
+		mockClient *mocks.MockClientsInterface
+		p          proxy.ProxyAPI
+	)
+
 	BeforeEach(func() {
-		proxyStruct = proxy{
-			log: zap.New(zap.WriteTo(ioutil.Discard)),
-		}
+		ctrl = gomock.NewController(GinkgoT())
+		mockClient = mocks.NewMockClientsInterface(ctrl)
+		p = proxy.NewProxyAPI(mockClient)
+
+		mockClient.EXPECT().
+			HasResource(configv1.SchemeGroupVersion.WithResource("proxies")).
+			Return(true, nil).
+			AnyTimes()
+		mockClient.EXPECT().
+			List(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, obj client.ObjectList, _ ...client.ListOption) error {
+				proxyCfg := unstructured.Unstructured{}
+				proxyCfg.SetName("cluster")
+				Expect(unstructured.SetNestedField(proxyCfg.Object, httpProxy, "spec", "httpProxy")).To(Succeed())
+				Expect(unstructured.SetNestedField(proxyCfg.Object, httpsProxy, "spec", "httpsProxy")).To(Succeed())
+				Expect(unstructured.SetNestedField(proxyCfg.Object, noProxy, "spec", "noProxy")).To(Succeed())
+				Expect(unstructured.SetNestedField(proxyCfg.Object, trustedCAName, "spec", "trustedCA", "name")).To(Succeed())
+
+				u := obj.(*unstructured.UnstructuredList)
+				u.Items = append(u.Items, proxyCfg)
+
+				return nil
+			}).AnyTimes()
 	})
 
 	It("should return an error for Pod with empty spec", func() {
@@ -41,23 +74,11 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxyStruct.Setup(&uo)
+		err = p.Setup(&uo)
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should return no error for Pod with one container", func() {
-		const (
-			httpProxy  = "http-host-with-proxy"
-			httpsProxy = "https-host-with-proxy"
-			noProxy    = "host-without-proxy"
-		)
-
-		proxyStruct.config = Configuration{
-			HttpProxy:  httpProxy,
-			HttpsProxy: httpsProxy,
-			NoProxy:    noProxy,
-		}
-
 		pod := v1.Pod{
 			TypeMeta: metav1.TypeMeta{Kind: "Pod"},
 			Spec: v1.PodSpec{
@@ -75,7 +96,10 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxyStruct.Setup(&uo)
+		_, err = p.ClusterConfiguration(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+
+		err = p.Setup(&uo)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &pod)
@@ -100,23 +124,14 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxyStruct.Setup(&uo)
+		_, err = p.ClusterConfiguration(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+
+		err = p.Setup(&uo)
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should return no error for DaemonSet with one container template", func() {
-		const (
-			httpProxy  = "http-host-with-proxy"
-			httpsProxy = "https-host-with-proxy"
-			noProxy    = "host-without-proxy"
-		)
-
-		proxyStruct.config = Configuration{
-			HttpProxy:  httpProxy,
-			HttpsProxy: httpsProxy,
-			NoProxy:    noProxy,
-		}
-
 		ds := appsv1.DaemonSet{
 			TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"},
 			Spec: appsv1.DaemonSetSpec{
@@ -138,7 +153,10 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxyStruct.Setup(&uo)
+		_, err = p.ClusterConfiguration(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+
+		err = p.Setup(&uo)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &ds)
@@ -158,42 +176,39 @@ var _ = Describe("Setup", func() {
 var _ = Describe("ClusterConfiguration", func() {
 	var (
 		ctrl           *gomock.Controller
-		proxyStruct    proxy
-		mockKubeClient *clients.MockClientsInterface
+		p              proxy.ProxyAPI
+		mockKubeClient *mocks.MockClientsInterface
 	)
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockKubeClient = clients.NewMockClientsInterface(ctrl)
-		proxyStruct = proxy{
-			kubeClient: mockKubeClient,
-			log:        zap.New(zap.WriteTo(ioutil.Discard)),
-		}
+		mockKubeClient = mocks.NewMockClientsInterface(ctrl)
+		p = proxy.NewProxyAPI(mockKubeClient)
 	})
 
 	It("HasResource failed", func() {
 		mockKubeClient.EXPECT().HasResource(gomock.Any()).Times(1).Return(false, fmt.Errorf("some error"))
-		_, err := proxyStruct.ClusterConfiguration(context.TODO())
+		_, err := p.ClusterConfiguration(context.TODO())
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("Unavailble proxy", func() {
 		mockKubeClient.EXPECT().HasResource(gomock.Any()).Times(1).Return(false, nil)
 		mockKubeClient.EXPECT().List(gomock.Any(), gomock.Any()).Times(0)
-		_, err := proxyStruct.ClusterConfiguration(context.TODO())
+		_, err := p.ClusterConfiguration(context.TODO())
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("Proxy List failed", func() {
 		mockKubeClient.EXPECT().HasResource(gomock.Any()).Times(1).Return(true, nil)
 		mockKubeClient.EXPECT().List(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("some error"))
-		_, err := proxyStruct.ClusterConfiguration(context.TODO())
+		_, err := p.ClusterConfiguration(context.TODO())
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("Config Proxy", func() {
 		mockKubeClient.EXPECT().HasResource(gomock.Any()).Times(1).Return(true, nil)
 		mockKubeClient.EXPECT().List(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-		proxy, err := proxyStruct.ClusterConfiguration(context.TODO())
+		proxy, err := p.ClusterConfiguration(context.TODO())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(proxy.HttpProxy).To(BeEmpty())
 		Expect(proxy.HttpsProxy).To(BeEmpty())

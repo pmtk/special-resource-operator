@@ -10,8 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/poll"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,8 +20,8 @@ import (
 )
 
 var (
-	mockKubeClient  *clients.MockClientsInterface
-	mockPollActions *poll.MockPollActions
+	mockKubeClient  *mocks.MockClientsInterface
+	mockPollActions *mocks.MockPollActions
 )
 
 func TestFinalizers(t *testing.T) {
@@ -30,8 +29,8 @@ func TestFinalizers(t *testing.T) {
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-		mockKubeClient = clients.NewMockClientsInterface(ctrl)
-		mockPollActions = poll.NewMockPollActions(ctrl)
+		mockKubeClient = mocks.NewMockClientsInterface(ctrl)
+		mockPollActions = mocks.NewMockPollActions(ctrl)
 	})
 
 	RunSpecs(t, "Finalizers Suite")

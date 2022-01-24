@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 	v1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,11 +15,11 @@ import (
 )
 
 var _ = Describe("StatusUpdater", func() {
-	var mockKubeClient *clients.MockClientsInterface
+	var mockKubeClient *mocks.MockClientsInterface
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-		mockKubeClient = clients.NewMockClientsInterface(ctrl)
+		mockKubeClient = mocks.NewMockClientsInterface(ctrl)
 	})
 
 	Describe("UpdateWithState", func() {

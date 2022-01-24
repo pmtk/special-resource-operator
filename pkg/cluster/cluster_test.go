@@ -8,7 +8,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	configv1 "github.com/openshift/api/config/v1"
@@ -22,7 +22,7 @@ import (
 
 var (
 	ctrl            *gomock.Controller
-	mockKubeClients *clients.MockClientsInterface
+	mockKubeClients *mocks.MockClientsInterface
 	randomError     = errors.New("random error")
 )
 
@@ -31,7 +31,7 @@ func TestCluster(t *testing.T) {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockKubeClients = clients.NewMockClientsInterface(ctrl)
+		mockKubeClients = mocks.NewMockClientsInterface(ctrl)
 	})
 
 	AfterEach(func() {

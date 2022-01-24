@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-//go:generate mockgen -source=cluster.go -package=cluster -destination=mock_cluster_api.go
+//go:generate mockgen -source=cluster.go -package=mocks -destination=../../internal/mocks/mock_cluster_api.go
 
 type Cluster interface {
 	Version(context.Context) (string, string, error)

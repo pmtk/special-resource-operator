@@ -8,9 +8,8 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,8 +27,8 @@ const (
 var (
 	ctrl        *gomock.Controller
 	labels      = map[string]string{"key": "value"}
-	mockClient  *clients.MockClientsInterface
-	mockStorage *storage.MockStorage
+	mockClient  *mocks.MockClientsInterface
+	mockStorage *mocks.MockStorage
 
 	optNs     = client.InNamespace(namespace)
 	optLabels = client.MatchingLabels(labels)
@@ -40,8 +39,8 @@ func TestLifecycle(t *testing.T) {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockClient = clients.NewMockClientsInterface(ctrl)
-		mockStorage = storage.NewMockStorage(ctrl)
+		mockClient = mocks.NewMockClientsInterface(ctrl)
+		mockStorage = mocks.NewMockStorage(ctrl)
 	})
 
 	AfterEach(func() {

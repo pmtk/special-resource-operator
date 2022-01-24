@@ -36,7 +36,7 @@ var (
 	UpdateVendor   string
 )
 
-//go:generate mockgen -source=resource.go -package=resource -destination=mock_resource_api.go
+//go:generate mockgen -source=resource.go -package=mocks -destination=../../internal/mocks/mock_resource_api.go
 
 type Creator interface {
 	CreateFromYAML(context.Context, []byte, bool, v1.Object, string, string, map[string]string, string, string) error

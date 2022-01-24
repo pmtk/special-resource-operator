@@ -12,10 +12,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gtypes "github.com/onsi/gomega/types"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,9 +34,9 @@ const (
 
 var (
 	ctrl                 *gomock.Controller
-	mockClientsInterface *clients.MockClientsInterface
-	mockLifecycle        *lifecycle.MockLifecycle
-	mockStorage          *storage.MockStorage
+	mockClientsInterface *mocks.MockClientsInterface
+	mockLifecycle        *mocks.MockLifecycle
+	mockStorage          *mocks.MockStorage
 	pa                   PollActions
 )
 
@@ -47,9 +45,9 @@ func TestPoll(t *testing.T) {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockClientsInterface = clients.NewMockClientsInterface(ctrl)
-		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
-		mockStorage = storage.NewMockStorage(ctrl)
+		mockClientsInterface = mocks.NewMockClientsInterface(ctrl)
+		mockLifecycle = mocks.NewMockLifecycle(ctrl)
+		mockStorage = mocks.NewMockStorage(ctrl)
 		pa = New(mockClientsInterface, mockLifecycle, mockStorage)
 
 		retryInterval = time.Millisecond * 5

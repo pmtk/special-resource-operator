@@ -22,7 +22,7 @@ type Configuration struct {
 	TrustedCA  string
 }
 
-//go:generate mockgen -source=proxy.go -package=proxy -destination=mock_proxy_api.go
+//go:generate mockgen -source=proxy.go -package=mocks -destination=../../internal/mocks/mock_proxy_api.go
 
 type ProxyAPI interface {
 	Setup(obj *unstructured.Unstructured) error

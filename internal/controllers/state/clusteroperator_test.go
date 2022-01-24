@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 	configv1 "github.com/openshift/api/config/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,13 +20,13 @@ var _ = Describe("ClusterOperatorManager", func() {
 	const operatorName = "operator-name"
 
 	var (
-		mockKubeClient *clients.MockClientsInterface
+		mockKubeClient *mocks.MockClientsInterface
 		randomError    = errors.New("random error")
 	)
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-		mockKubeClient = clients.NewMockClientsInterface(ctrl)
+		mockKubeClient = mocks.NewMockClientsInterface(ctrl)
 	})
 
 	Describe("GetOrCreate", func() {

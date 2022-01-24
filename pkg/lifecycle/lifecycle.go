@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-//go:generate mockgen -source=lifecycle.go -package=lifecycle -destination=mock_lifecycle_api.go
+//go:generate mockgen -source=lifecycle.go -package=mocks -destination=../../internal/mocks/mock_lifecycle_api.go
 
 type Lifecycle interface {
 	GetPodFromDaemonSet(context.Context, types.NamespacedName) *v1.PodList

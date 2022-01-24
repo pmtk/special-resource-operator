@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-//go:generate mockgen -source=clients.go -package=clients -destination=mock_clients_api.go
+//go:generate mockgen -source=clients.go -package=mocks -destination=../../internal/mocks/mock_clients_api.go
 
 const (
 	clusterVersionName = "version"

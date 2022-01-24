@@ -19,10 +19,10 @@ type Metadata struct {
 	Content []byte
 }
 
-//go:generate mockgen -source=assets.go -package=assets -destination=mock_assets_api.go
+//go:generate mockgen -source=assets.go -package=mocks -imports=assetsPkg=. -destination=../../internal/mocks/mock_assets_api.go
 
 type Assets interface {
-	GetFrom(assets string) []Metadata
+	GetFrom(dir string) []Metadata
 	ValidStateName(path string) bool
 }
 
@@ -39,9 +39,9 @@ func NewAssets() Assets {
 }
 
 // GetFrom reads all manifests 0000- from path and returns them
-func (a *assets) GetFrom(assets string) []Metadata {
+func (a *assets) GetFrom(dir string) []Metadata {
 	manifests := []Metadata{}
-	files, err := a.filePathWalkDir(assets, ".yaml")
+	files, err := a.filePathWalkDir(dir, ".yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +61,7 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 	var files []string
 
 	if _, err := os.Stat(root); os.IsNotExist(err) {
-		if fmt.Errorf("Directory %s does not exist, giving up: %w ", root, err) != nil {
+		if fmt.Errorf("directory %s does not exist, giving up: %w ", root, err) != nil {
 			return nil, err
 		}
 	}

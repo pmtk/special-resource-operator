@@ -14,9 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
-	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,9 +23,9 @@ import (
 
 var (
 	ctrl          *gomock.Controller
-	mockLifecycle *lifecycle.MockLifecycle
-	mockStorage   *storage.MockStorage
-	mockKernel    *kernel.MockKernelData
+	mockLifecycle *mocks.MockLifecycle
+	mockStorage   *mocks.MockStorage
+	mockKernel    *mocks.MockKernelData
 	f             filter
 )
 
@@ -36,9 +34,9 @@ func TestFilter(t *testing.T) {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
-		mockStorage = storage.NewMockStorage(ctrl)
-		mockKernel = kernel.NewMockKernelData(ctrl)
+		mockLifecycle = mocks.NewMockLifecycle(ctrl)
+		mockStorage = mocks.NewMockStorage(ctrl)
+		mockKernel = mocks.NewMockKernelData(ctrl)
 		f = filter{
 			log:        zap.New(zap.WriteTo(ioutil.Discard)),
 			lifecycle:  mockLifecycle,

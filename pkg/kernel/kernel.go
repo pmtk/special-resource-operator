@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-//go:generate mockgen -source=kernel.go -package=kernel -destination=mock_kernel_api.go
+//go:generate mockgen -source=kernel.go -package=mocks -destination=../../internal/mocks/mock_kernel_api.go
 
 type KernelData interface {
 	SetAffineAttributes(obj *unstructured.Unstructured, kernelFullVersion, operatingSystemMajorMinor string) error

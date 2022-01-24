@@ -40,7 +40,7 @@ type DriverToolkitEntry struct {
 	OSVersion           string `json:"OSVersion"`
 }
 
-//go:generate mockgen -source=registry.go -package=registry -destination=mock_registry_api.go
+//go:generate mockgen -source=registry.go -package=mocks -destination=../../internal/mocks/mock_registry_api.go
 
 type Registry interface {
 	LastLayer(context.Context, string) (v1.Layer, error)

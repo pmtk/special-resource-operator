@@ -16,7 +16,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-//go:generate mockgen -source=clusteroperator.go -package=state -destination=mock_clusteroperator_api.go
+//go:generate mockgen -source=clusteroperator.go -package=mocks -destination=../../mocks/mock_clusteroperator_api.go
 
 // ClusterOperatorManager provides helpers for the controller to publish and update its ClusterOperator resource.
 type ClusterOperatorManager interface {

@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/internal/mocks"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,7 +21,7 @@ const (
 
 var (
 	ctrl       *gomock.Controller
-	mockClient *clients.MockClientsInterface
+	mockClient *mocks.MockClientsInterface
 	notFound   = k8serrors.NewNotFound(v1.Resource("configmap"), resourceName)
 	nsn        = types.NamespacedName{Namespace: namespaceName, Name: resourceName}
 	cmMatcher  = gomock.AssignableToTypeOf(&v1.ConfigMap{})
@@ -32,7 +32,7 @@ func TestStorage(t *testing.T) {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockClient = clients.NewMockClientsInterface(ctrl)
+		mockClient = mocks.NewMockClientsInterface(ctrl)
 	})
 
 	AfterEach(func() {
