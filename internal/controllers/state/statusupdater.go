@@ -73,8 +73,7 @@ func (su *statusUpdater) updateWithMutator(ctx context.Context, sr *v1beta1.Spec
 	update := v1beta1.SpecialResource{}
 
 	// If we cannot find the SR than something bad is going on ..
-	objectKey := types.NamespacedName{Name: sr.GetName(), Namespace: sr.GetNamespace()}
-	err := su.kubeClient.Get(ctx, objectKey, &update)
+	err := su.kubeClient.Get(ctx, types.NamespacedName{Name: sr.GetName(), Namespace: sr.GetNamespace()}, &update)
 	if err != nil {
 		return errors.Wrap(err, "Is SR being deleted? Cannot get current instance")
 	}
@@ -88,8 +87,7 @@ func (su *statusUpdater) updateWithMutator(ctx context.Context, sr *v1beta1.Spec
 
 	err = su.kubeClient.StatusUpdate(ctx, sr)
 	if apierrors.IsConflict(err) {
-		objectKey := types.NamespacedName{Name: sr.Name, Namespace: ""}
-		err := su.kubeClient.Get(ctx, objectKey, sr)
+		err := su.kubeClient.Get(ctx, types.NamespacedName{Name: sr.Name, Namespace: ""}, sr)
 		if apierrors.IsNotFound(err) {
 			return errors.New("Could not update status because the object does not exist")
 		}
@@ -100,7 +98,7 @@ func (su *statusUpdater) updateWithMutator(ctx context.Context, sr *v1beta1.Spec
 			return errors.New("Status won't be updated because object is marked for deletion")
 		}
 
-		return errors.New("Conflict occurred during status update")
+		return errors.Wrap(err, "Conflict occurred during status update")
 	}
 
 	if err != nil {
