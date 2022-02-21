@@ -151,6 +151,9 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 	for _, stateYAML := range stateYAMLS {
 
 		log.Info("Executing", "State", stateYAML.Name)
+		if statusErr := r.StatusUpdater.SetAsProgressing(ctx, &r.specialresource, "HandlingState", fmt.Sprintf("Working on: %s", stateYAML.Name)); statusErr != nil {
+			log.Error(statusErr, "failed to update CR's status")
+		}
 
 		if r.specialresource.Spec.Debug {
 			log.Info("Debug active. Showing YAML contents", "name", stateYAML.Name, "data", stateYAML.Data)
@@ -254,7 +257,6 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
 		r.StatusUpdater.UpdateWithState(ctx, &r.specialresource, state.CurrentName)
-		r.StatusUpdater.SetAsProgressing(ctx, &r.specialresource, "ProgressingState", fmt.Sprintf("Working on: %s", state.CurrentName))
 
 		if err := r.labelNodesAccordingToState(ctx, r.specialresource.Spec.NodeSelector); err != nil {
 			return err
