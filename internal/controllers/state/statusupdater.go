@@ -25,9 +25,9 @@ const (
 
 type StatusUpdater interface {
 	UpdateWithState(context.Context, *v1beta1.SpecialResource, string)
-	SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string)
-	SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string)
-	SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string)
+	SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error
+	SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error
+	SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error
 }
 
 type statusUpdater struct {
@@ -42,17 +42,16 @@ func NewStatusUpdater(kubeClient clients.ClientsInterface) StatusUpdater {
 	}
 }
 
-func (su *statusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) {
-	su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
+func (su *statusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
+	return su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionTrue, Reason: reason, Message: message})
-
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: progressing})
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionFalse, Reason: progressing})
 	})
 }
 
-func (su *statusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) {
-	su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
+func (su *statusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
+	return su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionTrue, Reason: reason, Message: message})
 
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: ready})
@@ -60,8 +59,8 @@ func (su *statusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialReso
 	})
 }
 
-func (su *statusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) {
-	su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
+func (su *statusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
+	return su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionTrue, Reason: reason, Message: message})
 
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: errored})
@@ -69,7 +68,7 @@ func (su *statusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialRe
 	})
 }
 
-func (su *statusUpdater) updateWithMutator(ctx context.Context, sr *v1beta1.SpecialResource, mutator func(sr *v1beta1.SpecialResource)) {
+func (su *statusUpdater) updateWithMutator(ctx context.Context, sr *v1beta1.SpecialResource, mutator func(sr *v1beta1.SpecialResource)) error {
 
 	update := v1beta1.SpecialResource{}
 
@@ -77,8 +76,7 @@ func (su *statusUpdater) updateWithMutator(ctx context.Context, sr *v1beta1.Spec
 	objectKey := types.NamespacedName{Name: sr.GetName(), Namespace: sr.GetNamespace()}
 	err := su.kubeClient.Get(ctx, objectKey, &update)
 	if err != nil {
-		utils.WarnOnError(errors.Wrap(err, "Is SR being deleted? Cannot get current instance"))
-		return
+		return errors.Wrap(err, "Is SR being deleted? Cannot get current instance")
 	}
 
 	if sr.Status.Conditions == nil {
@@ -93,20 +91,23 @@ func (su *statusUpdater) updateWithMutator(ctx context.Context, sr *v1beta1.Spec
 		objectKey := types.NamespacedName{Name: sr.Name, Namespace: ""}
 		err := su.kubeClient.Get(ctx, objectKey, sr)
 		if apierrors.IsNotFound(err) {
-			return
+			return errors.New("Could not update status because the object does not exist")
 		}
+
 		// Do not update the status if we're in the process of being deleted
 		isMarkedToBeDeleted := sr.GetDeletionTimestamp() != nil
 		if isMarkedToBeDeleted {
-			return
+			return errors.New("Status won't be updated because object is marked for deletion")
 		}
 
+		return errors.New("Conflict occurred during status update")
 	}
 
 	if err != nil {
-		su.log.Error(err, "Failed to update SpecialResource status")
-		return
+		return errors.Wrap(err, "Failed to update SpecialResource status")
 	}
+
+	return nil
 }
 
 // UpdateWithState updates sr's Status.State property with state, and updates the object in Kubernetes.

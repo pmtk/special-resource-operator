@@ -36,9 +36,11 @@ func (m *MockStatusUpdater) EXPECT() *MockStatusUpdaterMockRecorder {
 }
 
 // SetAsErrored mocks base method.
-func (m *MockStatusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) {
+func (m *MockStatusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetAsErrored", ctx, sr, reason, message)
+	ret := m.ctrl.Call(m, "SetAsErrored", ctx, sr, reason, message)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // SetAsErrored indicates an expected call of SetAsErrored.
@@ -48,9 +50,11 @@ func (mr *MockStatusUpdaterMockRecorder) SetAsErrored(ctx, sr, reason, message i
 }
 
 // SetAsProgressing mocks base method.
-func (m *MockStatusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) {
+func (m *MockStatusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetAsProgressing", ctx, sr, reason, message)
+	ret := m.ctrl.Call(m, "SetAsProgressing", ctx, sr, reason, message)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // SetAsProgressing indicates an expected call of SetAsProgressing.
@@ -60,9 +64,11 @@ func (mr *MockStatusUpdaterMockRecorder) SetAsProgressing(ctx, sr, reason, messa
 }
 
 // SetAsReady mocks base method.
-func (m *MockStatusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) {
+func (m *MockStatusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetAsReady", ctx, sr, reason, message)
+	ret := m.ctrl.Call(m, "SetAsReady", ctx, sr, reason, message)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // SetAsReady indicates an expected call of SetAsReady.
