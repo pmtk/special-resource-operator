@@ -185,7 +185,9 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	r.StatusUpdater.SetAsReady(ctx, &r.parent, "Success", "")
+	if statusErr := r.StatusUpdater.SetAsReady(ctx, &r.parent, "Success", ""); statusErr != nil {
+		log.Error(statusErr, "failed to update CR's status")
+	}
 	log.Info("RECONCILE SUCCESS: All resources done")
 	return reconcile.Result{}, nil
 }
