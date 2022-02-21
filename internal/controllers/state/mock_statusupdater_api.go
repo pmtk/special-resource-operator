@@ -35,6 +35,42 @@ func (m *MockStatusUpdater) EXPECT() *MockStatusUpdaterMockRecorder {
 	return m.recorder
 }
 
+// SetAsErrored mocks base method.
+func (m *MockStatusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetAsErrored", ctx, sr, reason, message)
+}
+
+// SetAsErrored indicates an expected call of SetAsErrored.
+func (mr *MockStatusUpdaterMockRecorder) SetAsErrored(ctx, sr, reason, message interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAsErrored", reflect.TypeOf((*MockStatusUpdater)(nil).SetAsErrored), ctx, sr, reason, message)
+}
+
+// SetAsProgressing mocks base method.
+func (m *MockStatusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetAsProgressing", ctx, sr, reason, message)
+}
+
+// SetAsProgressing indicates an expected call of SetAsProgressing.
+func (mr *MockStatusUpdaterMockRecorder) SetAsProgressing(ctx, sr, reason, message interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAsProgressing", reflect.TypeOf((*MockStatusUpdater)(nil).SetAsProgressing), ctx, sr, reason, message)
+}
+
+// SetAsReady mocks base method.
+func (m *MockStatusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetAsReady", ctx, sr, reason, message)
+}
+
+// SetAsReady indicates an expected call of SetAsReady.
+func (mr *MockStatusUpdaterMockRecorder) SetAsReady(ctx, sr, reason, message interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAsReady", reflect.TypeOf((*MockStatusUpdater)(nil).SetAsReady), ctx, sr, reason, message)
+}
+
 // UpdateWithState mocks base method.
 func (m *MockStatusUpdater) UpdateWithState(arg0 context.Context, arg1 *v1beta1.SpecialResource, arg2 string) {
 	m.ctrl.T.Helper()

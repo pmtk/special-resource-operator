@@ -57,7 +57,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		}
 		parent, err := r.Storage.CheckConfigMapEntry(ctx, req.Name, obj)
 		if err != nil {
-			r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
+			log.Error(err, "")
 			return reconcile.Result{}, err
 		}
 		request, found = FindSR(specialresources.Items, parent, "Name")
@@ -67,12 +67,14 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	}
 
 	r.parent = specialresources.Items[request]
+	r.StatusUpdater.SetAsProgressing(ctx, &r.parent, "Progressing", "Progressing")
 
 	// Execute finalization logic if CR is being deleted
 	isMarkedToBeDeleted := r.parent.GetDeletionTimestamp() != nil
 	if isMarkedToBeDeleted {
 		r.specialresource = r.parent
 		log.Info("Marked to be deleted, reconciling finalizer")
+		r.StatusUpdater.SetAsProgressing(ctx, &r.parent, "MarkedForDeletion", "CR is marked for deletion")
 		err = r.Finalizer.Finalize(ctx, &r.specialresource)
 		return reconcile.Result{}, err
 	}
@@ -103,6 +105,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)
 	if err != nil {
 		r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
+		r.StatusUpdater.SetAsErrored(ctx, &r.parent, "ChartFailure", fmt.Sprintf("Failed to load Helm Chart: %v", err))
 		return reconcile.Result{}, err
 	}
 
@@ -114,6 +117,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 
 		cchart, err := r.Helmer.Load(r.dependency.HelmChart)
 		if err != nil {
+			r.StatusUpdater.SetAsErrored(ctx, &r.parent, "DependencyChartFailure", fmt.Sprintf("Failed to load dependency Helm Chart: %v", err))
 			return ctrl.Result{}, err
 		}
 
@@ -126,6 +130,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		}
 		if err = r.Storage.UpdateConfigMapEntry(ctx, r.dependency.Name, r.parent.Name, ins); err != nil {
 			r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
+			r.StatusUpdater.SetAsErrored(ctx, &r.parent, "FailedToStoreDependencyInfo", fmt.Sprintf("Failed to store dependency information: %v", err))
 			return reconcile.Result{}, err
 		}
 
@@ -135,6 +140,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			log.Error(err, "Could not get SpecialResource dependency")
 			if err = createSpecialResourceFrom(ctx, r, cchart, r.dependency.HelmChart); err != nil {
 				log.Error(err, "RECONCILE REQUEUE: Dependency creation failed ")
+				r.StatusUpdater.SetAsErrored(ctx, &r.parent, "FailedToCreateDependencySR", fmt.Sprintf("Failed to create SR for dependency: %v", err))
 				return reconcile.Result{Requeue: true}, nil
 			}
 			// We need to fetch the newly created SpecialResources, reconciling
@@ -144,6 +150,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			// We do not want a stacktrace here, errors.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
 			r.StatusUpdater.UpdateWithState(ctx, &child, fmt.Sprintf("%v", err))
+			r.StatusUpdater.SetAsErrored(ctx, &child, "FailedToDeployDependencyChart", fmt.Sprintf("Failed to deploy dependency: %v", err))
 			log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
 			//return reconcile.Result{}, errors.New("Reconciling failed")
 			return reconcile.Result{Requeue: true}, nil
@@ -156,11 +163,13 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		// We do not want a stacktrace here, errors.Wrap already created
 		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
 		r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
+		r.StatusUpdater.SetAsErrored(ctx, &r.parent, "FailedToDeployChart", fmt.Sprintf("Failed to deploy SpecialResource's chart: %v", err))
 		log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
 		//return reconcile.Result{}, errors.New("Reconciling failed")
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	r.StatusUpdater.SetAsReady(ctx, &r.parent, "Success", "")
 	log.Info("RECONCILE SUCCESS: All resources done")
 	return reconcile.Result{}, nil
 }
