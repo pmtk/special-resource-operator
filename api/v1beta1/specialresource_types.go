@@ -148,7 +148,7 @@ const (
 	// Progressing means handling of the SpecialResource is in progress.
 	SpecialResourceProgressing string = "Progressing"
 
-	// Errored means SpecialResourceOperator detected an error that is unrecoverable without user's intervention.
+	// Errored means SpecialResourceOperator detected an error that might be short-lived or unrecoverable without user's intervention.
 	SpecialResourceErrored string = "Errored"
 )
 
