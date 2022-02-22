@@ -108,7 +108,6 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 
 	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)
 	if err != nil {
-		r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 		if suErr := r.StatusUpdater.SetAsErrored(ctx, &r.parent, "ChartFailure", fmt.Sprintf("Failed to load Helm Chart: %v", err)); suErr != nil {
 			log.Error(suErr, "failed to update CR's status")
 		}
@@ -137,7 +136,6 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			Name:      "special-resource-dependencies",
 		}
 		if err = r.Storage.UpdateConfigMapEntry(ctx, r.dependency.Name, r.parent.Name, ins); err != nil {
-			r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 			if suErr := r.StatusUpdater.SetAsErrored(ctx, &r.parent, "FailedToStoreDependencyInfo", fmt.Sprintf("Failed to store dependency information: %v", err)); suErr != nil {
 				log.Error(suErr, "failed to update CR's status")
 			}
@@ -161,7 +159,6 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		if err := ReconcileSpecialResourceChart(ctx, r, child, cchart, r.dependency.Set); err != nil {
 			// We do not want a stacktrace here, errors.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-			r.StatusUpdater.UpdateWithState(ctx, &child, fmt.Sprintf("%v", err))
 			if suErr := r.StatusUpdater.SetAsErrored(ctx, &child, "FailedToDeployDependencyChart", fmt.Sprintf("Failed to deploy dependency: %v", err)); suErr != nil {
 				log.Error(suErr, "failed to update CR's status")
 			}
@@ -176,7 +173,6 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	if err := ReconcileSpecialResourceChart(ctx, r, r.parent, pchart, r.parent.Spec.Set); err != nil {
 		// We do not want a stacktrace here, errors.Wrap already created
 		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-		r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 		if suErr := r.StatusUpdater.SetAsErrored(ctx, &r.parent, "FailedToDeployChart", fmt.Sprintf("Failed to deploy SpecialResource's chart: %v", err)); suErr != nil {
 			log.Error(suErr, "failed to update CR's status")
 		}

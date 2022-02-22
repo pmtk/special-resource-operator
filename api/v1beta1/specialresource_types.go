@@ -156,9 +156,6 @@ const (
 // It is populated by the system and is read-only.
 // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
 type SpecialResourceStatus struct {
-	// State describes at which step the chart installation is.
-	State string `json:"state"`
-
 	// Conditions contain observations about SpecialResource's current state
 	// +patchMergeKey=type
 	// +patchStrategy=merge

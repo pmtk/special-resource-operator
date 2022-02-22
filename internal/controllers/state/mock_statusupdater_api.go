@@ -76,15 +76,3 @@ func (mr *MockStatusUpdaterMockRecorder) SetAsReady(ctx, sr, reason, message int
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAsReady", reflect.TypeOf((*MockStatusUpdater)(nil).SetAsReady), ctx, sr, reason, message)
 }
-
-// UpdateWithState mocks base method.
-func (m *MockStatusUpdater) UpdateWithState(arg0 context.Context, arg1 *v1beta1.SpecialResource, arg2 string) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "UpdateWithState", arg0, arg1, arg2)
-}
-
-// UpdateWithState indicates an expected call of UpdateWithState.
-func (mr *MockStatusUpdaterMockRecorder) UpdateWithState(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateWithState", reflect.TypeOf((*MockStatusUpdater)(nil).UpdateWithState), arg0, arg1, arg2)
-}
