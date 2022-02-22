@@ -151,8 +151,8 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 	for _, stateYAML := range stateYAMLS {
 
 		log.Info("Executing", "State", stateYAML.Name)
-		if statusErr := r.StatusUpdater.SetAsProgressing(ctx, &r.specialresource, "HandlingState", fmt.Sprintf("Working on: %s", stateYAML.Name)); statusErr != nil {
-			log.Error(statusErr, "failed to update CR's status")
+		if suErr := r.StatusUpdater.SetAsProgressing(ctx, &r.specialresource, "HandlingState", fmt.Sprintf("Working on: %s", stateYAML.Name)); suErr != nil {
+			log.Error(suErr, "failed to update CR's status")
 		}
 
 		if r.specialresource.Spec.Debug {
