@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 
+	s "github.com/openshift-psap/special-resource-operator/internal/controllers/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
@@ -151,7 +152,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 	for _, stateYAML := range stateYAMLS {
 
 		log.Info("Executing", "State", stateYAML.Name)
-		if suErr := r.StatusUpdater.SetAsProgressing(ctx, &r.specialresource, "HandlingState", fmt.Sprintf("Working on: %s", stateYAML.Name)); suErr != nil {
+		if suErr := r.StatusUpdater.SetAsProgressing(ctx, &r.specialresource, s.HandlingState, fmt.Sprintf("Working on: %s", stateYAML.Name)); suErr != nil {
 			log.Error(suErr, "failed to update CR's status")
 		}
 

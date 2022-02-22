@@ -16,9 +16,21 @@ import (
 )
 
 const (
-	ready       = "SpecialResourceIsReady"
-	progressing = "Progressing"
-	errored     = "ErrorHasOccurred"
+	Ready       = "SpecialResourceIsReady"
+	Progressing = "Progressing"
+	Errored     = "ErrorHasOccurred"
+
+	// Following strings are Reasons
+
+	Success                       = "Success"
+	HandlingState                 = "HandlingState"
+	MarkedForDeletion             = "MarkedForDeletion"
+	ChartFailure                  = "ChartFailure"
+	DependencyChartFailure        = "DependencyChartFailure"
+	FailedToStoreDependencyInfo   = "FailedToStoreDependencyInfo"
+	FailedToCreateDependencySR    = "FailedToCreateDependencySR"
+	FailedToDeployDependencyChart = "FailedToDeployDependencyChart"
+	FailedToDeployChart           = "FailedToDeployChart"
 )
 
 //go:generate mockgen -source=statusupdater.go -package=state -destination=mock_statusupdater_api.go
@@ -45,8 +57,8 @@ func NewStatusUpdater(kubeClient clients.ClientsInterface) StatusUpdater {
 func (su *statusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
 	return su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionTrue, Reason: reason, Message: message})
-		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: progressing})
-		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionFalse, Reason: progressing})
+		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: Progressing})
+		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionFalse, Reason: Progressing})
 	})
 }
 
@@ -55,8 +67,8 @@ func (su *statusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialReso
 	return su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionTrue, Reason: reason, Message: message})
 
-		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: ready})
-		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionFalse, Reason: ready})
+		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: Ready})
+		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionFalse, Reason: Ready})
 	})
 }
 
@@ -65,8 +77,8 @@ func (su *statusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialRe
 	return su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionTrue, Reason: reason, Message: message})
 
-		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: errored})
-		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: errored})
+		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: Errored})
+		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: Errored})
 	})
 }
 
