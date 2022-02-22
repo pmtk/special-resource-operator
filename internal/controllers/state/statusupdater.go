@@ -41,6 +41,7 @@ func NewStatusUpdater(kubeClient clients.ClientsInterface) StatusUpdater {
 	}
 }
 
+// SetAsProgressing changes SpecialResource's Progressing condition as true and changes Ready and Errored conditions to false, and updates the status in the API.
 func (su *statusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
 	return su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionTrue, Reason: reason, Message: message})
@@ -49,6 +50,7 @@ func (su *statusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.Speci
 	})
 }
 
+// SetAsProgressing changes SpecialResource's Ready condition as true and changes Progressing and Errored conditions to false, and updates the status in the API.
 func (su *statusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
 	return su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionTrue, Reason: reason, Message: message})
@@ -58,6 +60,7 @@ func (su *statusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialReso
 	})
 }
 
+// SetAsErrored changes SpecialResource's Errored condition as true and changes Ready and Progressing conditions to false, and updates the status in the API.
 func (su *statusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
 	return su.updateWithMutator(ctx, sr, func(o *v1beta1.SpecialResource) {
 		meta.SetStatusCondition(&o.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionTrue, Reason: reason, Message: message})
