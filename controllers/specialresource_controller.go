@@ -77,11 +77,11 @@ type SpecialResourceReconciler struct {
 	ProxyAPI      proxy.ProxyAPI
 	KubeClient    clients.ClientsInterface
 
-	specialresource srov1beta1.SpecialResource
-	parent          srov1beta1.SpecialResource
+	specialresource *srov1beta1.SpecialResource
+	parent          *srov1beta1.SpecialResource
+	dependency      srov1beta1.SpecialResourceDependency
 	chart           chart.Chart
 	values          unstructured.Unstructured
-	dependency      srov1beta1.SpecialResourceDependency
 }
 
 // Reconcile Reconiliation entry point

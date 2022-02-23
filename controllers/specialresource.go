@@ -67,8 +67,8 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		}
 	}
 
-	r.parent = specialresources.Items[request]
-	if suErr := r.StatusUpdater.SetAsProgressing(ctx, &r.parent, state.Progressing, state.Progressing); suErr != nil {
+	r.parent = &specialresources.Items[request]
+	if suErr := r.StatusUpdater.SetAsProgressing(ctx, r.parent, state.Progressing, state.Progressing); suErr != nil {
 		log.Error(suErr, "failed to update CR's status")
 	}
 
@@ -77,10 +77,10 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	if isMarkedToBeDeleted {
 		r.specialresource = r.parent
 		log.Info("Marked to be deleted, reconciling finalizer")
-		if suErr := r.StatusUpdater.SetAsProgressing(ctx, &r.parent, state.MarkedForDeletion, "CR is marked for deletion"); suErr != nil {
+		if suErr := r.StatusUpdater.SetAsProgressing(ctx, r.parent, state.MarkedForDeletion, "CR is marked for deletion"); suErr != nil {
 			log.Error(suErr, "failed to update CR's status")
 		}
-		err = r.Finalizer.Finalize(ctx, &r.specialresource)
+		err = r.Finalizer.Finalize(ctx, r.specialresource)
 		return reconcile.Result{}, err
 	}
 
@@ -109,7 +109,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 
 	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)
 	if err != nil {
-		if suErr := r.StatusUpdater.SetAsErrored(ctx, &r.parent, state.ChartFailure, fmt.Sprintf("Failed to load Helm Chart: %v", err)); suErr != nil {
+		if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.ChartFailure, fmt.Sprintf("Failed to load Helm Chart: %v", err)); suErr != nil {
 			log.Error(suErr, "failed to update CR's status")
 		}
 		return reconcile.Result{}, err
@@ -123,7 +123,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 
 		cchart, err := r.Helmer.Load(r.dependency.HelmChart)
 		if err != nil {
-			if suErr := r.StatusUpdater.SetAsErrored(ctx, &r.parent, state.DependencyChartFailure, fmt.Sprintf("Failed to load dependency Helm Chart: %v", err)); suErr != nil {
+			if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.DependencyChartFailure, fmt.Sprintf("Failed to load dependency Helm Chart: %v", err)); suErr != nil {
 				log.Error(suErr, "failed to update CR's status")
 			}
 			return ctrl.Result{}, err
@@ -137,7 +137,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			Name:      "special-resource-dependencies",
 		}
 		if err = r.Storage.UpdateConfigMapEntry(ctx, r.dependency.Name, r.parent.Name, ins); err != nil {
-			if suErr := r.StatusUpdater.SetAsErrored(ctx, &r.parent, state.FailedToStoreDependencyInfo, fmt.Sprintf("Failed to store dependency information: %v", err)); suErr != nil {
+			if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.FailedToStoreDependencyInfo, fmt.Sprintf("Failed to store dependency information: %v", err)); suErr != nil {
 				log.Error(suErr, "failed to update CR's status")
 			}
 			return reconcile.Result{}, err
@@ -149,7 +149,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			log.Error(err, "Could not get SpecialResource dependency")
 			if err = createSpecialResourceFrom(ctx, r, cchart, r.dependency.HelmChart); err != nil {
 				log.Error(err, "RECONCILE REQUEUE: Dependency creation failed ")
-				if suErr := r.StatusUpdater.SetAsErrored(ctx, &r.parent, state.FailedToCreateDependencySR, fmt.Sprintf("Failed to create SR for dependency: %v", err)); suErr != nil {
+				if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.FailedToCreateDependencySR, fmt.Sprintf("Failed to create SR for dependency: %v", err)); suErr != nil {
 					log.Error(suErr, "failed to update CR's status")
 				}
 				return reconcile.Result{Requeue: true}, nil
@@ -157,7 +157,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			// We need to fetch the newly created SpecialResources, reconciling
 			return reconcile.Result{}, nil
 		}
-		if err := ReconcileSpecialResourceChart(ctx, r, child, cchart, r.dependency.Set); err != nil {
+		if err := ReconcileSpecialResourceChart(ctx, r, &child, cchart, r.dependency.Set); err != nil {
 			// We do not want a stacktrace here, errors.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
 			if suErr := r.StatusUpdater.SetAsErrored(ctx, &child, state.FailedToDeployDependencyChart, fmt.Sprintf("Failed to deploy dependency: %v", err)); suErr != nil {
@@ -174,7 +174,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	if err := ReconcileSpecialResourceChart(ctx, r, r.parent, pchart, r.parent.Spec.Set); err != nil {
 		// We do not want a stacktrace here, errors.Wrap already created
 		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-		if suErr := r.StatusUpdater.SetAsErrored(ctx, &r.parent, state.FailedToDeployChart, fmt.Sprintf("Failed to deploy SpecialResource's chart: %v", err)); suErr != nil {
+		if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.FailedToDeployChart, fmt.Sprintf("Failed to deploy SpecialResource's chart: %v", err)); suErr != nil {
 			log.Error(suErr, "failed to update CR's status")
 		}
 		log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
@@ -182,7 +182,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	if suErr := r.StatusUpdater.SetAsReady(ctx, &r.parent, state.Success, ""); suErr != nil {
+	if suErr := r.StatusUpdater.SetAsReady(ctx, r.parent, state.Success, ""); suErr != nil {
 		log.Error(suErr, "failed to update CR's status")
 	}
 	log.Info("RECONCILE SUCCESS: All resources done")
@@ -226,7 +226,7 @@ func TemplateFragment(sr interface{}) error {
 	return json.Unmarshal(buff.Bytes(), sr)
 }
 
-func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconciler, sr srov1beta1.SpecialResource, chart *chart.Chart, values unstructured.Unstructured) error {
+func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconciler, sr *srov1beta1.SpecialResource, chart *chart.Chart, values unstructured.Unstructured) error {
 
 	r.specialresource = sr
 	r.chart = *chart
@@ -292,7 +292,7 @@ func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconc
 
 	// Add a finalizer to CR if it does not already have one
 	if !utils.StringSliceContains(r.specialresource.GetFinalizers(), finalizers.FinalizerString) {
-		if err := r.Finalizer.AddToSpecialResource(ctx, &r.specialresource); err != nil {
+		if err := r.Finalizer.AddToSpecialResource(ctx, r.specialresource); err != nil {
 			log.Error(err, "Failed to add finalizer")
 			return err
 		}
@@ -362,7 +362,7 @@ func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler
 		ctx,
 		ch.Files[idx].Data,
 		false,
-		&r.specialresource,
+		r.specialresource,
 		r.specialresource.Name,
 		r.specialresource.Namespace,
 		r.specialresource.Spec.NodeSelector,

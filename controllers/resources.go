@@ -152,7 +152,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 	for _, stateYAML := range stateYAMLS {
 
 		log.Info("Executing", "State", stateYAML.Name)
-		if suErr := r.StatusUpdater.SetAsProgressing(ctx, &r.specialresource, s.HandlingState, fmt.Sprintf("Working on: %s", stateYAML.Name)); suErr != nil {
+		if suErr := r.StatusUpdater.SetAsProgressing(ctx, r.specialresource, s.HandlingState, fmt.Sprintf("Working on: %s", stateYAML.Name)); suErr != nil {
 			log.Error(suErr, "failed to update CR's status")
 		}
 
@@ -227,7 +227,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 				ctx,
 				step,
 				step.Values,
-				&r.specialresource,
+				r.specialresource,
 				r.specialresource.Name,
 				r.specialresource.Spec.Namespace,
 				r.specialresource.Spec.NodeSelector,
@@ -284,7 +284,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		ctx,
 		nostate,
 		nostate.Values,
-		&r.specialresource,
+		r.specialresource,
 		r.specialresource.Name,
 		r.specialresource.Spec.Namespace,
 		r.specialresource.Spec.NodeSelector,
@@ -312,7 +312,7 @@ metadata:
 		ns = append(ns, add...)
 	}
 
-	if err := r.Creator.CreateFromYAML(ctx, ns, false, &r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
+	if err := r.Creator.CreateFromYAML(ctx, ns, false, r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
 		log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
 		return err
 	}
