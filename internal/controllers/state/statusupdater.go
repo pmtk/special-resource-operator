@@ -3,13 +3,10 @@ package state
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -40,13 +37,11 @@ type StatusUpdater interface {
 
 type statusUpdater struct {
 	kubeClient clients.ClientsInterface
-	log        logr.Logger
 }
 
 func NewStatusUpdater(kubeClient clients.ClientsInterface) StatusUpdater {
 	return &statusUpdater{
 		kubeClient: kubeClient,
-		log:        ctrl.Log.WithName(utils.Print("status-updater", utils.Blue)),
 	}
 }
 
@@ -59,7 +54,7 @@ func (su *statusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.Speci
 	return su.kubeClient.StatusUpdate(ctx, sr)
 }
 
-// SetAsProgressing changes SpecialResource's Ready condition as true and changes Progressing and Errored conditions to false, and updates the status in the API.
+// SetAsReady changes SpecialResource's Ready condition as true and changes Progressing and Errored conditions to false, and updates the status in the API.
 func (su *statusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
 	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionTrue, Reason: reason, Message: message})
 	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: Ready})
