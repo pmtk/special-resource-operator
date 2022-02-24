@@ -17,21 +17,21 @@ The Special Resource Operator is available as a community operator on OperatorHu
 ## From the CLI
 
 Deploy to vanilla k8s:
-```
+```sh
 $ git clone https://github.com/openshift-psap/special-resource-operator
 $ cd special-resource-operator
 $ make deploy TAG=master
 ```
 
 Deploy to OCP:
-```
+```sh
 $ git clone https://github.com/openshift-psap/special-resource-operator
 $ cd special-resource-operator
 $ make deploy TAG=master
 ```
 
 To build and deploy using a custom operator image:
-```
+```sh
 $ make local-image-build
 $ make local-image-push
 $ make deploy
@@ -39,10 +39,17 @@ $ make deploy
 Note: The image TAG will default to the name of the current git branch, but can be overriden by setting the TAG variable. See the `Makefile` for more details.
 
 To deploy the simple-kmod example special resource on OpenShift 4.x:
-```
+```sh
 $ oc apply -f charts/example/simple-kmod-0.0.1/simple-kmod.yaml
 ```
 
+## Running locally
+Special Resource Operator can be run locally against a cluster using following command:
+```sh
+$ make helm-plugins
+$ HELM_PLUGINS=$PWD/helm-plugins KUBECONFIG=$HOME/.kube/config OPERATOR_NAMESPACE=openshift-special-resource-operator go run .
+```
+Special Resource Operator uses `$XDG_CACHE_HOME/.cache/special-resource-operator` (or falls back to `$HOME/.cache/special-resource-operator`) as a working directory for Helm.
 
 # Creating a special resource recipe
 
