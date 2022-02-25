@@ -49,7 +49,7 @@ $ oc apply -f charts/example/simple-kmod-0.0.1/simple-kmod.yaml
 Special Resource Operator can be run locally against a cluster using following command:
 ```sh
 $ make deploy
-$ oc scale -n special-resource-operator deployment/special-resource-controller-manager --replicas=0
+$ kubectl scale -n special-resource-operator deployment/special-resource-controller-manager --replicas=0
 $ make manager helm-plugins
 $ HELM_PLUGINS=$PWD/helm-plugins KUBECONFIG=$HOME/.kube/config OPERATOR_NAMESPACE=special-resource-operator ./manager
 ```
