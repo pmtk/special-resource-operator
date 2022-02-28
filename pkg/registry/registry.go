@@ -128,14 +128,13 @@ func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error
 	}
 
 	var registryAuths []crane.Option
-	if auth.Email != "" && auth.Auth != "" {
+	if auth.Auth != "" {
 		registryAuths = append(registryAuths, crane.WithAuth(authn.FromConfig(authn.AuthConfig{Username: auth.Email, Auth: auth.Auth})))
 	}
 
 	manifest, err := crane.Manifest(entry, registryAuths...)
 	if err != nil {
-		utils.WarnOnError(fmt.Errorf("cannot extract manifest: %v", err))
-		return nil, nil
+		return nil, err
 	}
 
 	release := unstructured.Unstructured{}
