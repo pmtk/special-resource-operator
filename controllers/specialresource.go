@@ -379,5 +379,5 @@ func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler
 
 func removeSpecialResource(ctx context.Context, r *SpecialResourceReconciler) error {
 	r.specialresource = r.parent
-	return r.Finalizer.Finalize(ctx, &r.specialresource)
+	return r.Finalizer.Finalize(ctx, r.specialresource)
 }
