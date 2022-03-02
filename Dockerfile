@@ -3,28 +3,33 @@ FROM golang:1.17-bullseye AS builder
 
 WORKDIR /workspace
 
-# Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
+RUN ["go",  "mod", "download"]
 
-COPY hack/ hack/
-COPY helm-plugins/ helm-plugins/
 COPY Makefile.specialresource.mk Makefile.specialresource.mk
 COPY Makefile.helm.mk Makefile.helm.mk
 COPY Makefile.helper.mk Makefile.helper.mk
 COPY Makefile Makefile
+RUN ["make", "controller-gen"]
+
+COPY charts/ charts/
+RUN ["make", "helm-repo-index"]
+
+COPY cmd/ cmd/
+RUN ["make", "helm-plugins/cm-getter/cm-getter"]
+
+COPY hack/ hack/
+COPY helm-plugins/ helm-plugins/
 COPY scripts/ scripts/
 
-# Copy the go source
 COPY main.go main.go
 COPY api/ api/
-COPY cmd/ cmd/
 COPY controllers/ controllers/
 COPY internal/ internal/
 COPY pkg/ pkg/
-COPY charts/ charts/
 
-RUN ["make", "helm-repo-index", "manager", "helm-plugins/cm-getter/cm-getter"]
+RUN ["make", "manager"]
 
 FROM debian:bullseye-slim
 
@@ -34,13 +39,12 @@ RUN ["apt", "install", "-y", "ca-certificates"]
 WORKDIR /
 
 ENV HELM_PLUGINS /opt/helm-plugins
-
-COPY --from=builder /workspace/manager /manager
-COPY --from=builder /workspace/helm-plugins ${HELM_PLUGINS}
-COPY --from=builder /workspace/build/charts /charts
-
 RUN useradd  -r -u 499 nonroot
 RUN getent group nonroot || groupadd -o -g 499 nonroot
+
+COPY --from=builder /workspace/helm-plugins ${HELM_PLUGINS}
+COPY --from=builder /workspace/build/charts /charts
+COPY --from=builder /workspace/manager /manager
 
 ENTRYPOINT ["/manager"]
 
