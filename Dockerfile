@@ -13,11 +13,11 @@ COPY Makefile.helper.mk Makefile.helper.mk
 COPY Makefile Makefile
 RUN ["make", "controller-gen"]
 
-COPY charts/ charts/
-RUN ["make", "helm-repo-index"]
-
 COPY cmd/ cmd/
 RUN ["make", "helm-plugins/cm-getter/cm-getter"]
+
+COPY charts/ charts/
+RUN ["make", "helm-repo-index"]
 
 COPY hack/ hack/
 COPY helm-plugins/ helm-plugins/
