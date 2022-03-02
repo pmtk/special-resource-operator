@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
@@ -51,6 +52,8 @@ func (su *statusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.Speci
 	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: Progressing})
 	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionFalse, Reason: Progressing})
 
+	sr.Status.State = fmt.Sprintf("Progressing: %s", message)
+
 	return su.kubeClient.StatusUpdate(ctx, sr)
 }
 
@@ -60,6 +63,8 @@ func (su *statusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialReso
 	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: Ready})
 	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionFalse, Reason: Ready})
 
+	sr.Status.State = fmt.Sprintf("Ready: %s", message)
+
 	return su.kubeClient.StatusUpdate(ctx, sr)
 }
 
@@ -68,6 +73,8 @@ func (su *statusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialRe
 	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionTrue, Reason: reason, Message: message})
 	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: Errored})
 	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: Errored})
+
+	sr.Status.State = fmt.Sprintf("Errored: %s", message)
 
 	return su.kubeClient.StatusUpdate(ctx, sr)
 }

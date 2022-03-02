@@ -2,6 +2,7 @@ package state_test
 
 import (
 	"context"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -11,6 +12,20 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type legacyStatusMatcher struct {
+	expectedSubstring string
+}
+
+func (l legacyStatusMatcher) Matches(arg interface{}) bool {
+	sr := arg.(*v1beta1.SpecialResource)
+
+	return strings.Contains(sr.Status.State, l.expectedSubstring)
+}
+
+func (l legacyStatusMatcher) String() string {
+	return l.expectedSubstring
+}
 
 type conditionExclusivityMatcher struct {
 	onlyConditionToBeTrue string
@@ -59,7 +74,7 @@ var _ = Describe("SetAs{Ready,Progressing,Errored}", func() {
 		func(expectedType string, call func(state.StatusUpdater) error) {
 			gomock.InOrder(
 				kubeClient.EXPECT().
-					StatusUpdate(context.TODO(), conditionExclusivityMatcher{expectedType}).
+					StatusUpdate(context.TODO(), gomock.All(conditionExclusivityMatcher{expectedType}, legacyStatusMatcher{expectedType})).
 					Return(nil),
 			)
 
