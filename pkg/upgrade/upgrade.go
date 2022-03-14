@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 
@@ -64,12 +63,12 @@ func (ci *clusterInfo) GetClusterInfo(ctx context.Context, nodeList *corev1.Node
 		return nil, fmt.Errorf("failed to get upgrade info: %w", err)
 	}
 
-	history, err := ci.cluster.VersionHistory(ctx)
+	dtkImages, err := ci.cluster.GetDTKImages(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not get version history: %w", err)
+		return nil, fmt.Errorf("could not get DTK images: %w", err)
 	}
 
-	versions, err := ci.driverToolkitVersion(ctx, history, info)
+	versions, err := ci.driverToolkitVersion(ctx, dtkImages, info)
 	if err != nil {
 		return nil, err
 	}
@@ -174,37 +173,20 @@ func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.Driv
 	return info, nil
 }
 
-func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, entries []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
+func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
 
-	for _, entry := range entries {
+	for _, imageURL := range dtkImages {
 
-		ci.log.Info("History", "entry", entry)
+		ci.log.Info("DTK", "url", imageURL)
 
 		var (
 			err   error
 			layer v1.Layer
 		)
 
-		layer, err = ci.registry.LastLayer(ctx, entry)
-		if err != nil {
+		if layer, err = ci.registry.LastLayer(ctx, imageURL); err != nil {
 			return nil, err
-		}
-
-		if layer == nil {
-			continue
-		}
-		// For each entry we're fetching the cluster version and dtk URL
-		_, imageURL, err := ci.registry.ReleaseManifests(layer)
-		if err != nil {
-			return nil, fmt.Errorf("could not extract version from payload: %w", err)
-		}
-
-		if imageURL == "" {
-			utils.WarnOnError(errors.New("No DTK image found, DTK cannot be used in a Build"))
-			return info, nil
-		}
-
-		if layer, err = ci.registry.LastLayer(ctx, imageURL); layer == nil {
+		} else if layer == nil {
 			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 		}
 
