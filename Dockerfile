@@ -3,6 +3,10 @@ FROM golang:1.17-bullseye AS builder
 
 WORKDIR /workspace
 
+# Following sections are ordered by expected chance of being changed in daily developer's work:
+# go.mod is expected to change less frequently than the SRO's code.
+# This approach leverages layer caching to speed up rebuilds.
+
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN ["go",  "mod", "download"]
