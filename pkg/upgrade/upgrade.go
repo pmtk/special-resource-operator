@@ -175,35 +175,31 @@ func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.Driv
 
 func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
 
-	for _, imageURL := range dtkImages {
+	imageURL := dtkImages[0]
 
-		ci.log.Info("DTK", "url", imageURL)
+	ci.log.Info("DTK", "url", imageURL)
 
-		var (
-			err   error
-			layer v1.Layer
-		)
+	var (
+		err   error
+		layer v1.Layer
+	)
 
-		if layer, err = ci.registry.LastLayer(ctx, imageURL); err != nil {
-			return nil, err
-		} else if layer == nil {
-			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
-		}
-
-		dtk, err := ci.registry.ExtractToolkitRelease(layer)
-		if err != nil {
-			return nil, err
-		}
-
-		// info has the kernels that are currently "running" on the cluster
-		// we're going only to update the struct with DTK information on
-		// running kernels and not on all that are found.
-		// We could have many entries with DTKs that are from an old update
-		// The objects that are kernel affine should only be replicated
-		// for valid kernels.
-		return ci.updateInfo(info, dtk, imageURL)
-
+	if layer, err = ci.registry.LastLayer(ctx, imageURL); err != nil {
+		return nil, err
+	} else if layer == nil {
+		return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 	}
 
-	return info, nil
+	dtk, err := ci.registry.ExtractToolkitRelease(layer)
+	if err != nil {
+		return nil, err
+	}
+
+	// info has the kernels that are currently "running" on the cluster
+	// we're going only to update the struct with DTK information on
+	// running kernels and not on all that are found.
+	// We could have many entries with DTKs that are from an old update
+	// The objects that are kernel affine should only be replicated
+	// for valid kernels.
+	return ci.updateInfo(info, dtk, imageURL)
 }
