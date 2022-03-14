@@ -7,10 +7,7 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 RUN ["go",  "mod", "download"]
 
-COPY Makefile.specialresource.mk Makefile.specialresource.mk
-COPY Makefile.helm.mk Makefile.helm.mk
-COPY Makefile.helper.mk Makefile.helper.mk
-COPY Makefile Makefile
+COPY Makefile* .
 RUN ["make", "controller-gen"]
 
 COPY cmd/ cmd/
