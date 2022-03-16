@@ -11,7 +11,7 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 RUN ["go",  "mod", "download"]
 
-COPY Makefile* .
+COPY Makefile* ./
 RUN ["make", "controller-gen"]
 
 COPY cmd/ cmd/
